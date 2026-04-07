@@ -1,0 +1,84 @@
+/* ============================================================
+   Sistema de Logística — Estilos globales
+   ============================================================ */
+
+/* ── Login ── */
+.bg-login {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+    border-radius: 16px;
+}
+
+/* ── Tarjetas de estadísticas ── */
+.stat-card {
+    border-radius: 12px;
+    transition: transform .15s ease, box-shadow .15s ease;
+    cursor: default;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.12) !important;
+}
+
+.stat-card .card-body {
+    padding: 1.25rem;
+}
+
+.stat-icon {
+    font-size: 1.5rem;
+    margin-bottom: .4rem;
+    opacity: .75;
+}
+.stat-numero {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: .25rem;
+}
+.stat-label {
+    font-size: .78rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    opacity: .8;
+}
+
+/* Variantes de color */
+.stat-azul    { background: #e7f0ff; color: #0d4fba; }
+.stat-naranja { background: #fff3e0; color: #c45200; }
+.stat-verde   { background: #e6f9f0; color: #0a6640; }
+.stat-rojo    { background: #fdeaea; color: #971b1b; }
+.stat-violeta { background: #f3eeff; color: #5a29a3; }
+.stat-gris    { background: #f0f2f5; color: #495057; }
+
+/* ── Navbar ── */
+.navbar-brand {
+    font-size: 1rem;
+}
+
+/* ── Tablas ── */
+.table th {
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 600;
+}
+
+/* ── Cards generales ── */
+.card {
+    border-radius: 12px;
+}
+
+/* ── Badges de estado ── */
+.badge-estado-pendiente            { background-color: #fd7e14; }
+.badge-estado-parcialmente_entregado { background-color: #0dcaf0; color: #000; }
+.badge-estado-entregado            { background-color: #198754; }
+.badge-estado-en_stock             { background-color: #6f42c1; }
+.badge-estado-armando              { background-color: #adb5bd; color: #000; }
+.badge-estado-en_camino            { background-color: #0d6efd; }
+.badge-estado-completada           { background-color: #198754; }
+.badge-estado-con_incidencias      { background-color: #dc3545; }

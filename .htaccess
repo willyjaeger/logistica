@@ -1,0 +1,26 @@
+# ============================================================
+# /ops/ — Sistema de gestión logística
+# ============================================================
+
+# Bloquear listado de directorios
+Options -Indexes
+
+# Bloquear acceso HTTP directo a archivos de config
+# (los include de PHP siguen funcionando normalmente)
+<FilesMatch "^(db|auth)\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Proteger el directorio config/ completo
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^config/ - [F,L]
+</IfModule>
+
+# Cabeceras de seguridad básicas
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "no-referrer"
+</IfModule>
