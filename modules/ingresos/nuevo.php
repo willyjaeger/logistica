@@ -1,13 +1,10 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
 require_once __DIR__ . '/../../config/auth.php';
 require_login();
 
 $eid = empresa_id();
 $db  = db();
 
-// Cargar proveedores y clientes para los selects
 $stmt = $db->prepare("SELECT id, nombre FROM proveedores WHERE empresa_id = ? AND activo = 1 ORDER BY nombre");
 $stmt->execute([$eid]);
 $proveedores = $stmt->fetchAll();
@@ -17,7 +14,6 @@ $stmt->execute([$eid]);
 $clientes = $stmt->fetchAll();
 
 $fecha_default = date('Y-m-d\TH:i');
-
 $nav_modulo = 'ingresos';
 ?>
 <!DOCTYPE html>
@@ -43,17 +39,15 @@ $nav_modulo = 'ingresos';
 
 <div class="container-fluid py-4 px-4">
 
-    <!-- Encabezado -->
     <div class="d-flex align-items-center mb-4">
-        <a href="<?= url('modules/ingresos/lista.php') ?>" class="btn btn-sm btn-outline-secondary me-3"
-           title="Volver a la lista">
+        <a href="<?= url('modules/ingresos/lista.php') ?>" class="btn btn-sm btn-outline-secondary me-3">
             <i class="bi bi-arrow-left"></i>
         </a>
         <div>
             <h5 class="fw-bold mb-0">
                 <i class="bi bi-box-arrow-in-down me-2 text-primary"></i>Registrar ingreso de camión
             </h5>
-            <small class="text-muted">Completá los datos del camión y los remitos que trajo</small>
+            <small class="text-muted">Datos del camión y los remitos que trajo</small>
         </div>
     </div>
 
@@ -66,15 +60,24 @@ $nav_modulo = 'ingresos';
             </div>
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label" for="fecha_ingreso">Fecha y hora</label>
                         <input type="datetime-local" id="fecha_ingreso" name="fecha_ingreso"
                                class="form-control" value="<?= $fecha_default ?>" required>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label" for="transportista">Transportista</label>
+                        <label class="form-label" for="proveedor_id">Proveedor <span class="text-danger">*</span></label>
+                        <select id="proveedor_id" name="proveedor_id" class="form-select" required>
+                            <option value="">— Seleccioná —</option>
+                            <?php foreach ($proveedores as $p): ?>
+                            <option value="<?= $p['id'] ?>"><?= h($p['nombre']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="transportista">Transportista (expreso)</label>
                         <input type="text" id="transportista" name="transportista"
-                               class="form-control" placeholder="Empresa de transporte" autocomplete="off">
+                               class="form-control" placeholder="Ej: Expreso Sauer" autocomplete="off">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label" for="patente_camion_ext">Patente</label>
@@ -83,15 +86,15 @@ $nav_modulo = 'ingresos';
                                maxlength="15" autocomplete="off"
                                oninput="this.value=this.value.toUpperCase()">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="form-label" for="chofer_externo">Chofer</label>
                         <input type="text" id="chofer_externo" name="chofer_externo"
-                               class="form-control" placeholder="Nombre del chofer" autocomplete="off">
+                               class="form-control" placeholder="Nombre" autocomplete="off">
                     </div>
                     <div class="col-12">
-                        <label class="form-label" for="observaciones">Observaciones generales</label>
+                        <label class="form-label" for="observaciones">Observaciones</label>
                         <textarea id="observaciones" name="observaciones" class="form-control" rows="2"
-                                  placeholder="Ej: mercadería con signos de humedad, bultos abiertos… (opcional)"></textarea>
+                                  placeholder="Ej: mercadería con signos de humedad… (opcional)"></textarea>
                     </div>
                 </div>
             </div>
@@ -115,7 +118,6 @@ $nav_modulo = 'ingresos';
                                 <th class="col-num">#</th>
                                 <th>Nro remito (propio) <span class="text-danger">*</span></th>
                                 <th>Nro remito (proveedor)</th>
-                                <th>Proveedor</th>
                                 <th>Cliente <span class="text-danger">*</span></th>
                                 <th>Fecha remito</th>
                                 <th>Observaciones</th>
@@ -125,14 +127,13 @@ $nav_modulo = 'ingresos';
                         <tbody id="tbody-remitos"></tbody>
                     </table>
                 </div>
-                <div id="msg-vacio" class="text-center text-muted py-5" style="display:none">
+                <div id="msg-vacio" class="text-center text-muted py-4" style="display:none">
                     <i class="bi bi-file-earmark-plus fs-2 d-block mb-2"></i>
-                    No hay remitos. Hacé clic en <strong>Agregar remito</strong> para empezar.
+                    Hacé clic en <strong>Agregar remito</strong> para empezar.
                 </div>
             </div>
         </div>
 
-        <!-- ── Acciones ── -->
         <div class="d-flex justify-content-between align-items-center">
             <a href="<?= url('modules/ingresos/lista.php') ?>" class="btn btn-outline-secondary">
                 <i class="bi bi-x-circle me-2"></i>Cancelar
@@ -151,19 +152,13 @@ $nav_modulo = 'ingresos';
 (function () {
   'use strict';
 
-  // Datos del servidor (JSON-encoded, seguros contra XSS)
-  const PROVEEDORES = <?= json_encode($proveedores, JSON_UNESCAPED_UNICODE) ?>;
-  const CLIENTES    = <?= json_encode($clientes,    JSON_UNESCAPED_UNICODE) ?>;
-
+  const CLIENTES = <?= json_encode($clientes, JSON_UNESCAPED_UNICODE) ?>;
   let contadorRemitos = 0;
 
-  /* Escapado seguro para usar en atributos HTML dentro de template literals */
   function esc(str) {
     return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   function buildOptions(items, textoVacio) {
@@ -188,7 +183,6 @@ $nav_modulo = 'ingresos';
   function agregarRemito() {
     const idx = contadorRemitos++;
     const tbody = document.getElementById('tbody-remitos');
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="col-num"><span class="num-fila"></span></td>
@@ -199,11 +193,6 @@ $nav_modulo = 'ingresos';
       <td>
         <input type="text" name="remitos[${idx}][nro_remito_proveedor]"
                class="form-control form-control-sm" placeholder="Nro del proveedor">
-      </td>
-      <td>
-        <select name="remitos[${idx}][proveedor_id]" class="form-select form-select-sm">
-          ${buildOptions(PROVEEDORES, '— Sin proveedor —')}
-        </select>
       </td>
       <td>
         <select name="remitos[${idx}][cliente_id]" class="form-select form-select-sm" required>
@@ -219,30 +208,23 @@ $nav_modulo = 'ingresos';
                class="form-control form-control-sm" placeholder="Opcional">
       </td>
       <td class="col-acc">
-        <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar" tabindex="-1"
-                title="Eliminar remito">
+        <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar" tabindex="-1">
           <i class="bi bi-trash"></i>
         </button>
       </td>
     `;
-
     tbody.appendChild(tr);
     renumerarFilas();
     actualizarVacio();
-
-    // Foco en el primer campo de la nueva fila
-    const primerCampo = tr.querySelector('input:not([type=hidden]), select');
-    if (primerCampo) primerCampo.focus();
+    tr.querySelector('input').focus();
   }
 
-  // Eliminar fila (delegación de eventos)
   document.getElementById('tbody-remitos').addEventListener('click', function (e) {
     const btn = e.target.closest('.btn-eliminar');
     if (!btn) return;
     const tr = btn.closest('tr');
     const filas = document.querySelectorAll('#tbody-remitos tr');
     if (filas.length <= 1) {
-      // Si es la única fila, solo limpiar los campos
       tr.querySelectorAll('input').forEach(function (el) { el.value = ''; });
       tr.querySelectorAll('select').forEach(function (el) { el.selectedIndex = 0; });
       tr.querySelector('input').focus();
@@ -253,24 +235,20 @@ $nav_modulo = 'ingresos';
     actualizarVacio();
   });
 
-  // Botón agregar
   document.getElementById('btn-agregar').addEventListener('click', agregarRemito);
 
-  // Enter en último campo del último remito → agregar nueva fila
   document.addEventListener('formUltimoCampo', function (e) {
     if (e.target.closest('#tbody-remitos')) {
-      e.preventDefault(); // cancela el comportamiento por defecto de forms.js
+      e.preventDefault();
       agregarRemito();
     }
   });
 
-  // Validación antes de enviar: debe haber al menos un remito con cliente
   document.getElementById('form-ingreso').addEventListener('submit', function (e) {
     const filas = document.querySelectorAll('#tbody-remitos tr');
     if (filas.length === 0) {
       e.preventDefault();
       alert('Agregá al menos un remito antes de guardar.');
-      document.getElementById('btn-agregar').focus();
       return;
     }
     let tieneValido = false;
@@ -285,9 +263,7 @@ $nav_modulo = 'ingresos';
     }
   });
 
-  // Arrancar con un remito vacío
   agregarRemito();
-
 })();
 </script>
 </body>
