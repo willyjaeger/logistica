@@ -23,26 +23,19 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                 </li>
 
                 <li class="nav-item dropdown">
-                    <a class="nav-link<?= $nav_modulo === 'ingresos' ? ' active' : '' ?> dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                        <i class="bi bi-box-arrow-in-down me-1"></i>Ingresos
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?= url('modules/ingresos/lista.php') ?>">
-                            <i class="bi bi-list-ul me-2"></i>Ver todos
-                        </a></li>
-                        <li><a class="dropdown-item" href="<?= url('modules/ingresos/nuevo.php') ?>">
-                            <i class="bi bi-plus-circle me-2"></i>Registrar ingreso
-                        </a></li>
-                    </ul>
-                </li>
-
-                <li class="nav-item dropdown">
-                    <a class="nav-link<?= $nav_modulo === 'remitos' ? ' active' : '' ?> dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                    <a class="nav-link<?= in_array($nav_modulo, ['ingresos','remitos']) ? ' active' : '' ?> dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-file-earmark-text me-1"></i>Remitos
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?= url('modules/ingresos/remitos.php') ?>">
-                            <i class="bi bi-list-ul me-2"></i>Pendientes
+                        <li><a class="dropdown-item" href="<?= url('modules/remitos/lista.php') ?>">
+                            <i class="bi bi-list-ul me-2"></i>Ver todos
+                        </a></li>
+                        <li><a class="dropdown-item" href="<?= url('modules/remitos/form.php') ?>">
+                            <i class="bi bi-plus-circle me-2"></i>Nuevo remito
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-muted" href="<?= url('modules/remitos/lista.php') ?>?estado=pendiente">
+                            <i class="bi bi-clock me-2"></i>Pendientes
                         </a></li>
                     </ul>
                 </li>
