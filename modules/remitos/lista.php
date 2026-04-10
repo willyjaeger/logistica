@@ -86,12 +86,42 @@ $nav_modulo = 'remitos';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
-        .row-items { background: #f8f9fa; }
-        .row-items td { padding: .5rem 1rem .5rem 3rem; }
+        body { background: #eef1f6; }
+
+        /* Tabla principal */
+        #tabla-remitos thead th {
+            background: #2c3e50;
+            color: #fff;
+            font-size: .78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            border: none;
+        }
+        #tabla-remitos tbody tr.remito-row {
+            border-bottom: 1px solid #dde3ec;
+        }
+        #tabla-remitos tbody tr.remito-row:hover {
+            background: #dde8f7;
+        }
+        #tabla-remitos td {
+            color: #212529;
+        }
+        .font-monospace { color: #1a1a2e; font-weight: 700; }
+
+        /* Fila expandida de ítems */
+        .row-items { background: #f0f4fb; }
+        .row-items td { padding: .6rem 1rem .6rem 3.5rem; border-top: none; }
         .row-items table { font-size: .85rem; }
+        .row-items thead th { background: #d5dff0; color: #374151; font-size: .75rem; text-transform: uppercase; }
+
+        /* Botón expandir */
         .btn-expand { width: 28px; height: 28px; padding: 0; }
         .btn-expand .bi { transition: transform .2s; }
         .btn-expand.open .bi { transform: rotate(90deg); }
+
+        /* Tarjeta sin sombra suave */
+        .card { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,.10) !important; }
     </style>
 </head>
 <body>

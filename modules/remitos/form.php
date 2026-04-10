@@ -81,60 +81,92 @@ $nav_modulo = 'remitos';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
+        body { background: #eef1f6; }
+
         /* Sticky top bar */
         .barra-pallets {
             position: sticky;
             top: 56px;
             z-index: 99;
-            background: #fff;
-            border-bottom: 2px solid #dee2e6;
+            background: #1e293b;
+            border-bottom: 3px solid #0d6efd;
             padding: .75rem 1.5rem;
             display: flex;
             align-items: center;
             gap: 1.5rem;
+            box-shadow: 0 3px 10px rgba(0,0,0,.25);
         }
         .pallets-display {
             display: flex;
             align-items: baseline;
             gap: .4rem;
         }
-        .pallets-label { font-size: .85rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+        .pallets-label { font-size: .85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
         #total_pallets {
-            width: 90px;
-            font-size: 2.4rem;
+            width: 100px;
+            font-size: 2.8rem;
             font-weight: 700;
-            color: #0d6efd;
+            color: #38bdf8;
             border: none;
-            border-bottom: 2px solid #dee2e6;
+            border-bottom: 2px solid #334155;
             text-align: center;
             padding: 0;
             background: transparent;
         }
-        #total_pallets:focus { outline: none; border-bottom-color: #0d6efd; }
+        #total_pallets:focus { outline: none; border-bottom-color: #38bdf8; }
 
         /* Secciones del formulario */
-        .seccion { background: #fff; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem 1.25rem; margin-bottom: 1rem; }
-        .seccion-titulo { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #6c757d; margin-bottom: .75rem; }
+        .seccion {
+            background: #fff;
+            border: none;
+            border-left: 4px solid #0d6efd;
+            border-radius: .5rem;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+        }
+        .seccion-titulo {
+            font-size: .78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #0d6efd;
+            margin-bottom: .75rem;
+            padding-bottom: .4rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .form-label { color: #374151; font-weight: 600; }
+        .form-control, .form-select {
+            border-color: #ced4da;
+            color: #1a1a2e;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 .2rem rgba(13,110,253,.15);
+        }
 
         /* Autocomplete */
         .ac-wrap { position: relative; }
         .ac-drop {
             position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
-            background: #fff; border: 1px solid #ced4da; border-radius: .375rem;
+            background: #fff; border: 1px solid #0d6efd; border-radius: .375rem;
             max-height: 220px; overflow-y: auto; display: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,.1);
+            box-shadow: 0 4px 16px rgba(0,0,0,.15);
         }
-        .ac-item { padding: .4rem .75rem; cursor: pointer; font-size: .9rem; }
-        .ac-item:hover, .ac-hl { background: #e7f1ff; }
+        .ac-item { padding: .4rem .75rem; cursor: pointer; font-size: .9rem; color: #212529; }
+        .ac-item:hover, .ac-hl { background: #dbeafe; }
         .ac-item small { color: #6c757d; }
 
         /* Tabla de artículos */
-        #tabla-items th { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; white-space: nowrap; }
-        #tabla-items td { vertical-align: middle; padding: .3rem .4rem; }
-        #tabla-items input { font-size: .9rem; }
+        #tabla-items thead { background: #1e293b; }
+        #tabla-items th { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; white-space: nowrap; padding: .5rem .4rem; border: none; }
+        #tabla-items tbody tr:nth-child(odd) { background: #f8faff; }
+        #tabla-items tbody tr:hover { background: #dbeafe; }
+        #tabla-items td { vertical-align: middle; padding: .3rem .4rem; border-color: #e2e8f0; }
+        #tabla-items input { font-size: .9rem; color: #1a1a2e; border-color: #cbd5e1; }
+        #tabla-items input:focus { border-color: #0d6efd; }
         .col-cod   { width: 90px; }
-        .col-desc  { min-width: 200px; }
-        .col-pres  { width: 160px; }
+        .col-desc  { min-width: 280px; }
         .col-cant  { width: 80px; }
         .col-bpp   { width: 90px; }
         .col-pal   { width: 75px; }
@@ -203,7 +235,7 @@ $nav_modulo = 'remitos';
             <div class="row g-2">
                 <div class="col-sm-3 col-lg-2">
                     <label class="form-label form-label-sm mb-1">Proveedor</label>
-                    <select name="proveedor_id" class="form-select form-select-sm">
+                    <select name="proveedor_id" class="form-select form-select-sm" autofocus>
                         <option value="">— ninguno —</option>
                         <?php
                         $sel_prov = $form_post['proveedor_id']
@@ -313,7 +345,6 @@ $nav_modulo = 'remitos';
                         <tr>
                             <th class="col-cod">Código</th>
                             <th class="col-desc">Descripción</th>
-                            <th class="col-pres">Presentación</th>
                             <th class="col-cant text-end">Cantidad</th>
                             <th class="col-bpp text-end">Btos/Pallet</th>
                             <th class="col-pal text-end">Pallets</th>
@@ -366,14 +397,13 @@ $nav_modulo = 'remitos';
                             </div>
                         </td>
                         <td class="col-desc">
-                            <input type="text" name="items[<?= $idx ?>][descripcion]"
-                                   class="form-control form-control-sm item-desc"
-                                   value="<?= h($it['descripcion']) ?>"<?= $readonly ?>>
-                        </td>
-                        <td class="col-pres">
-                            <input type="text" name="items[<?= $idx ?>][presentacion]"
-                                   class="form-control form-control-sm item-pres text-muted"
-                                   value="<?= h($it['presentacion'] ?? '') ?>"<?= $readonly ?>>
+                            <div class="ac-wrap">
+                                <input type="text" name="items[<?= $idx ?>][descripcion]"
+                                       class="form-control form-control-sm item-desc"
+                                       value="<?= h($it['descripcion']) ?>"
+                                       autocomplete="off"<?= $readonly ?>>
+                                <div class="ac-drop desc-drop"></div>
+                            </div>
                         </td>
                         <td class="col-cant">
                             <input type="text" name="items[<?= $idx ?>][cantidad]"
@@ -413,12 +443,12 @@ $nav_modulo = 'remitos';
                             </div>
                         </td>
                         <td class="col-desc">
-                            <input type="text" name="items[<?= $idx ?>][descripcion]"
-                                   class="form-control form-control-sm item-desc">
-                        </td>
-                        <td class="col-pres">
-                            <input type="text" name="items[<?= $idx ?>][presentacion]"
-                                   class="form-control form-control-sm item-pres text-muted">
+                            <div class="ac-wrap">
+                                <input type="text" name="items[<?= $idx ?>][descripcion]"
+                                       class="form-control form-control-sm item-desc"
+                                       autocomplete="off">
+                                <div class="ac-drop desc-drop"></div>
+                            </div>
                         </td>
                         <td class="col-cant">
                             <input type="text" name="items[<?= $idx ?>][cantidad]"
@@ -588,91 +618,116 @@ document.addEventListener('click', e => {
 
 // ═══════════════════════════════════════════════════════════════
 // AUTOCOMPLETE ARTÍCULOS (delega a cada fila)
+// Código y Descripción tienen su propio dropdown
 // ═══════════════════════════════════════════════════════════════
+const AC_URL = '<?= url('modules/remitos/ac_articulos.php') ?>';
+
 function initRowAC(row) {
     const codInput  = row.querySelector('.item-cod');
     const descInput = row.querySelector('.item-desc');
-    const presInput = row.querySelector('.item-pres');
     const cantInput = row.querySelector('.item-cant');
     const bppInput  = row.querySelector('.item-bpp');
     const artId     = row.querySelector('.item-art-id');
-    const drop      = row.querySelector('.art-drop');
-    let hlIdx = -1;
-    let timer;
+    const codDrop   = row.querySelector('.art-drop');
+    const descDrop  = row.querySelector('.desc-drop');
 
-    function dropItems()        { return Array.from(drop.querySelectorAll('.ac-item')); }
-    function setHl(its, idx)    {
-        hlIdx = idx;
-        its.forEach((el, i) => el.classList.toggle('ac-hl', i === idx));
-        if (idx >= 0) its[idx].scrollIntoView({ block: 'nearest' });
+    let codHl = -1, descHl = -1;
+    let codTimer, descTimer;
+
+    // Construir ítem HTML para el dropdown
+    function artHTML(a) {
+        return `<div class="ac-item"
+                     data-id="${a.id}" data-cod="${a.codigo}"
+                     data-desc="${a.descripcion.replace(/"/g,'&quot;')}"
+                     data-pres="${(a.presentacion||'').replace(/"/g,'&quot;')}"
+                     data-bpp="${a.bultos_por_pallet}">
+                    <strong class="me-2">${a.codigo}</strong>
+                    <span>${a.descripcion}</span>
+                    ${a.presentacion ? `<small class="ms-1 text-muted">— ${a.presentacion}</small>` : ''}
+                </div>`;
     }
+
+    // Seleccionar artículo desde cualquier dropdown
     function selectArt(el) {
         artId.value     = el.dataset.id;
         codInput.value  = el.dataset.cod;
-        descInput.value = el.dataset.desc;
-        presInput.value = el.dataset.pres;
+        // Unir descripción + presentación en un solo campo
+        const pres = el.dataset.pres ? ' - ' + el.dataset.pres : '';
+        descInput.value = el.dataset.desc + pres;
         bppInput.value  = el.dataset.bpp;
-        drop.style.display = 'none';
-        hlIdx = -1;
+        codDrop.style.display  = 'none';
+        descDrop.style.display = 'none';
+        codHl = -1; descHl = -1;
         recalcRow(row);
         cantInput.focus();
         cantInput.select();
     }
 
-    codInput.addEventListener('input', function() {
-        clearTimeout(timer);
-        artId.value = '';
-        const q = this.value.trim();
-        if (!q) { drop.style.display = 'none'; return; }
-        timer = setTimeout(() => {
-            fetch('<?= url('modules/remitos/ac_articulos.php') ?>?q=' + encodeURIComponent(q))
-                .then(r => r.json()).then(data => {
-                    hlIdx = -1;
-                    if (!data.length) { drop.style.display = 'none'; return; }
-                    drop.innerHTML = data.map(a =>
-                        `<div class="ac-item"
-                              data-id="${a.id}" data-cod="${a.codigo}"
-                              data-desc="${a.descripcion.replace(/"/g,'&quot;')}"
-                              data-pres="${(a.presentacion||'').replace(/"/g,'&quot;')}"
-                              data-bpp="${a.bultos_por_pallet}">
-                            <strong>${a.codigo}</strong>
-                            <small class="ms-2">${a.descripcion}</small>
-                         </div>`
-                    ).join('');
-                    drop.querySelectorAll('.ac-item').forEach(el =>
-                        el.addEventListener('mousedown', e => { e.preventDefault(); selectArt(el); })
-                    );
-                    drop.style.display = 'block';
-                });
-        }, 150);
-    });
+    // Función genérica para manejar un dropdown
+    function setupDrop(inputEl, drop, hlRef, searchParam) {
+        let hl = 0, timer;
+        const getItems = () => Array.from(drop.querySelectorAll('.ac-item'));
+        const setHl = (its, idx) => {
+            hl = idx;
+            its.forEach((el, i) => el.classList.toggle('ac-hl', i === idx));
+            if (idx >= 0) its[idx].scrollIntoView({ block: 'nearest' });
+        };
 
-    codInput.addEventListener('keydown', function(e) {
-        const its  = dropItems();
-        const open = drop.style.display !== 'none' && its.length;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            if (open) setHl(its, Math.min(hlIdx + 1, its.length - 1));
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            if (open) setHl(its, Math.max(hlIdx - 1, 0));
-        } else if (e.key === 'Enter') {
-            e.preventDefault();
-            if (open && hlIdx >= 0) selectArt(its[hlIdx]);
-            else { drop.style.display = 'none'; descInput.focus(); }
-        } else if (e.key === 'Escape') {
-            drop.style.display = 'none';
-        } else if (e.key === 'Tab') {
-            if (open && hlIdx >= 0) { e.preventDefault(); selectArt(its[hlIdx]); }
-            else drop.style.display = 'none';
-        }
-    });
+        inputEl.addEventListener('input', function() {
+            clearTimeout(timer);
+            artId.value = '';
+            const q = this.value.trim();
+            if (!q) { drop.style.display = 'none'; return; }
+            timer = setTimeout(() => {
+                fetch(AC_URL + '?q=' + encodeURIComponent(q))
+                    .then(r => r.json()).then(data => {
+                        hl = -1;
+                        if (!data.length) { drop.style.display = 'none'; return; }
+                        drop.innerHTML = data.map(artHTML).join('');
+                        drop.querySelectorAll('.ac-item').forEach(el =>
+                            el.addEventListener('mousedown', ev => { ev.preventDefault(); selectArt(el); })
+                        );
+                        drop.style.display = 'block';
+                    });
+            }, 150);
+        });
 
-    // Enter en desc → pres → cant
-    descInput.addEventListener('keydown', navEnter(presInput));
-    presInput.addEventListener('keydown', navEnter(cantInput));
+        inputEl.addEventListener('keydown', function(e) {
+            const its  = getItems();
+            const open = drop.style.display !== 'none' && its.length;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (open) setHl(its, Math.min(hl + 1, its.length - 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (open) setHl(its, Math.max(hl - 1, 0));
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (open && hl >= 0) { selectArt(its[hl]); }
+                else {
+                    drop.style.display = 'none';
+                    // Enter en cod → desc; Enter en desc → cant
+                    if (inputEl === codInput) descInput.focus();
+                    else { cantInput.focus(); cantInput.select(); }
+                }
+            } else if (e.key === 'Escape') {
+                drop.style.display = 'none';
+            } else if (e.key === 'Tab') {
+                if (open && hl >= 0) { e.preventDefault(); selectArt(its[hl]); }
+                else drop.style.display = 'none';
+            }
+        });
 
-    // Enter en cant → bpp, en bpp → siguiente fila (cod)
+        document.addEventListener('click', ev => {
+            if (!inputEl.contains(ev.target) && !drop.contains(ev.target))
+                drop.style.display = 'none';
+        });
+    }
+
+    setupDrop(codInput,  codDrop,  'codHl',  'cod');
+    setupDrop(descInput, descDrop, 'descHl', 'desc');
+
+    // Enter en cant → bpp, en bpp → siguiente fila
     cantInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') { e.preventDefault(); bppInput.focus(); bppInput.select(); }
     });
@@ -686,13 +741,7 @@ function initRowAC(row) {
         }
     });
 
-    // Recalcular pallets al cambiar cantidad o bpp
     [cantInput, bppInput].forEach(inp => inp.addEventListener('input', () => recalcRow(row)));
-
-    document.addEventListener('click', e => {
-        if (!codInput.contains(e.target) && !drop.contains(e.target))
-            drop.style.display = 'none';
-    });
 }
 
 function navEnter(nextEl) {
@@ -767,12 +816,11 @@ document.getElementById('btn-agregar-fila').addEventListener('click', function()
         </div>
       </td>
       <td class="col-desc">
-        <input type="text" name="items[${idx}][descripcion]"
-               class="form-control form-control-sm item-desc">
-      </td>
-      <td class="col-pres">
-        <input type="text" name="items[${idx}][presentacion]"
-               class="form-control form-control-sm item-pres text-muted">
+        <div class="ac-wrap">
+          <input type="text" name="items[${idx}][descripcion]"
+                 class="form-control form-control-sm item-desc" autocomplete="off">
+          <div class="ac-drop desc-drop"></div>
+        </div>
       </td>
       <td class="col-cant">
         <input type="text" name="items[${idx}][cantidad]"
@@ -826,6 +874,47 @@ document.getElementById('nro_num').addEventListener('blur', function() {
 });
 
 // ═══════════════════════════════════════════════════════════════
+// NAVEGACIÓN CON ENTER EN CAMPOS SUPERIORES
+// Impide que Enter dispare el submit y avanza al siguiente campo
+// ═══════════════════════════════════════════════════════════════
+const navSecuencia = [
+    'select[name=proveedor_id]',
+    'input[name=transportista]',
+    'input[name=patente]',
+    'input[name=chofer]',
+    'input[name=fecha_entrada]',
+    'input[name=fecha_remito]',
+    '#punto_venta',
+    '#nro_num',
+    '#cli_search',
+    'input[name=nro_oc]',
+].map(sel => document.querySelector(sel)).filter(Boolean);
+
+navSecuencia.forEach((el, i) => {
+    el.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const next = navSecuencia[i + 1];
+        if (next) { next.focus(); if (next.select) next.select(); }
+        else {
+            // Después del último campo superior → primer ítem
+            const firstCod = document.querySelector('#tbody-items .item-cod');
+            if (firstCod) firstCod.focus();
+        }
+    });
+});
+
+// Bloquear submit por Enter en cualquier input fuera de tbody
+document.getElementById('form-remito').addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    if (e.target.tagName === 'TEXTAREA') return;
+    if (e.target.tagName === 'SELECT') return;
+    if (e.target.closest('#tbody-items')) return;
+    if (e.target === cliSearch) return; // lo maneja su propio listener
+    e.preventDefault();
+});
+
+// ═══════════════════════════════════════════════════════════════
 // MODAL NUEVO CLIENTE + ARCA LOOKUP
 // ═══════════════════════════════════════════════════════════════
 document.getElementById('modalCliente').addEventListener('shown.bs.modal', function() {
@@ -845,7 +934,7 @@ document.getElementById('btn_arca').addEventListener('click', function() {
     st.textContent = 'Consultando ARCA...';
     st.className = 'form-text text-muted';
 
-    fetch('<?= url('modules/ingresos/afip_lookup.php') ?>?cuit=' + cuit)
+    fetch('<?= url('modules/remitos/afip_lookup.php') ?>?cuit=' + cuit)
         .then(r => r.json())
         .then(d => {
             btn.disabled = false;

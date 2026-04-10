@@ -1,7 +1,6 @@
 -- ============================================================
--- MIGRACIÓN v2: nro_oc y fecha_entrega en remitos
--- Ejecutar en phpMyAdmin. Si la columna ya existe ignorar error.
+-- MIGRACIÓN v2
 -- ============================================================
 
-ALTER TABLE remitos ADD COLUMN IF NOT EXISTS nro_oc VARCHAR(50) NULL AFTER observaciones;
-ALTER TABLE remitos ADD COLUMN IF NOT EXISTS fecha_entrega DATE NULL AFTER nro_oc;
+ALTER TABLE remitos ADD COLUMN nro_oc VARCHAR(50) NULL AFTER observaciones;
+ALTER TABLE remitos ADD COLUMN fecha_entrega DATE NULL AFTER nro_oc;
