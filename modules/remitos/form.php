@@ -235,7 +235,7 @@ $nav_modulo = 'remitos';
             <div class="row g-2">
                 <div class="col-sm-3 col-lg-2">
                     <label class="form-label form-label-sm mb-1">Proveedor</label>
-                    <select name="proveedor_id" class="form-select form-select-sm" autofocus>
+                    <select name="proveedor_id" class="form-select form-select-sm">
                         <option value="">— ninguno —</option>
                         <?php
                         $sel_prov = $form_post['proveedor_id']
@@ -346,7 +346,6 @@ $nav_modulo = 'remitos';
                             <th class="col-cod">Código</th>
                             <th class="col-desc">Descripción</th>
                             <th class="col-cant text-end">Cantidad</th>
-                            <th class="col-bpp text-end">Btos/Pallet</th>
                             <th class="col-pal text-end">Pallets</th>
                             <th class="col-del"></th>
                         </tr>
@@ -388,6 +387,8 @@ $nav_modulo = 'remitos';
                         <td class="col-cod">
                             <input type="hidden" name="items[<?= $idx ?>][articulo_id]"
                                    class="item-art-id" value="<?= h($it['articulo_id'] ?? '') ?>">
+                            <input type="hidden" name="items[<?= $idx ?>][bultos_por_pallet]"
+                                   class="item-bpp" value="<?= h($bpp_val) ?>">
                             <div class="ac-wrap">
                                 <input type="text" name="items[<?= $idx ?>][codigo]"
                                        class="form-control form-control-sm item-cod font-monospace"
@@ -401,7 +402,7 @@ $nav_modulo = 'remitos';
                                 <input type="text" name="items[<?= $idx ?>][descripcion]"
                                        class="form-control form-control-sm item-desc"
                                        value="<?= h($it['descripcion']) ?>"
-                                       autocomplete="off"<?= $readonly ?>>
+                                       autocomplete="off" tabindex="-1"<?= $readonly ?>>
                                 <div class="ac-drop desc-drop"></div>
                             </div>
                         </td>
@@ -410,12 +411,6 @@ $nav_modulo = 'remitos';
                                    class="form-control form-control-sm item-cant text-end"
                                    inputmode="decimal"
                                    value="<?= h($it['cantidad'] ?? '') ?>"<?= $readonly ?>>
-                        </td>
-                        <td class="col-bpp">
-                            <input type="text" name="items[<?= $idx ?>][bultos_por_pallet]"
-                                   class="form-control form-control-sm item-bpp text-end"
-                                   inputmode="decimal"
-                                   value="<?= h($bpp_val) ?>"<?= $readonly ?>>
                         </td>
                         <td class="col-pal pallets-calc" data-pallets="<?= $pal_show ?>">
                             <?= $pal_show !== '' ? number_format($pal_show, 2) : '' ?>
@@ -435,6 +430,7 @@ $nav_modulo = 'remitos';
                     <tr class="item-row" data-idx="<?= $idx ?>">
                         <td class="col-cod">
                             <input type="hidden" name="items[<?= $idx ?>][articulo_id]" class="item-art-id" value="">
+                            <input type="hidden" name="items[<?= $idx ?>][bultos_por_pallet]" class="item-bpp" value="">
                             <div class="ac-wrap">
                                 <input type="text" name="items[<?= $idx ?>][codigo]"
                                        class="form-control form-control-sm item-cod font-monospace"
@@ -446,18 +442,13 @@ $nav_modulo = 'remitos';
                             <div class="ac-wrap">
                                 <input type="text" name="items[<?= $idx ?>][descripcion]"
                                        class="form-control form-control-sm item-desc"
-                                       autocomplete="off">
+                                       autocomplete="off" tabindex="-1">
                                 <div class="ac-drop desc-drop"></div>
                             </div>
                         </td>
                         <td class="col-cant">
                             <input type="text" name="items[<?= $idx ?>][cantidad]"
                                    class="form-control form-control-sm item-cant text-end"
-                                   inputmode="decimal">
-                        </td>
-                        <td class="col-bpp">
-                            <input type="text" name="items[<?= $idx ?>][bultos_por_pallet]"
-                                   class="form-control form-control-sm item-bpp text-end"
                                    inputmode="decimal">
                         </td>
                         <td class="col-pal pallets-calc" data-pallets=""></td>
@@ -565,27 +556,34 @@ function cliSelect(el) {
     cliHl = -1;
 }
 
+function cliBuscar(q) {
+    fetch('<?= url('modules/remitos/ac_clientes.php') ?>?q=' + encodeURIComponent(q))
+        .then(r => r.json()).then(data => {
+            cliHl = -1;
+            if (!data.length) { cliDrop.style.display = 'none'; return; }
+            cliDrop.innerHTML = data.map(c => {
+                const safe = c.nombre.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+                return `<div class="ac-item" data-id="${c.id}" data-nombre="${safe}">
+                    ${c.nombre}${c.cuit ? `<small class="ms-2">${c.cuit}</small>` : ''}
+                </div>`;
+            }).join('');
+            cliDrop.querySelectorAll('.ac-item').forEach(el =>
+                el.addEventListener('mousedown', e => { e.preventDefault(); cliSelect(el); })
+            );
+            cliDrop.style.display = 'block';
+        });
+}
+
+cliSearch.addEventListener('focus', function() {
+    if (!cliId.value) cliBuscar(this.value.trim());
+});
+
 cliSearch.addEventListener('input', function() {
     clearTimeout(cliTimer);
     cliId.value = '';
     const q = this.value.trim();
-    if (q.length < 2) { cliDrop.style.display = 'none'; return; }
-    cliTimer = setTimeout(() => {
-        fetch('<?= url('modules/remitos/ac_clientes.php') ?>?q=' + encodeURIComponent(q))
-            .then(r => r.json()).then(data => {
-                cliHl = -1;
-                if (!data.length) { cliDrop.style.display = 'none'; return; }
-                cliDrop.innerHTML = data.map(c =>
-                    `<div class="ac-item" data-id="${c.id}" data-nombre="${c.nombre.replace(/"/g,'&quot;')}">
-                        ${c.nombre}${c.cuit ? `<small class="ms-2">${c.cuit}</small>` : ''}
-                     </div>`
-                ).join('');
-                cliDrop.querySelectorAll('.ac-item').forEach(el =>
-                    el.addEventListener('mousedown', e => { e.preventDefault(); cliSelect(el); })
-                );
-                cliDrop.style.display = 'block';
-            });
-    }, 200);
+    if (q.length === 0) { cliBuscar(''); return; }
+    cliTimer = setTimeout(() => cliBuscar(q), 200);
 });
 
 cliSearch.addEventListener('keydown', function(e) {
@@ -713,7 +711,7 @@ function initRowAC(row) {
             } else if (e.key === 'Escape') {
                 drop.style.display = 'none';
             } else if (e.key === 'Tab') {
-                if (open && hl >= 0) { e.preventDefault(); selectArt(its[hl]); }
+                if (open && its.length) { e.preventDefault(); selectArt(hl >= 0 ? its[hl] : its[0]); }
                 else drop.style.display = 'none';
             }
         });
@@ -724,14 +722,51 @@ function initRowAC(row) {
         });
     }
 
-    setupDrop(codInput,  codDrop,  'codHl',  'cod');
+    // Código: Enter va directo a cantidad (Tab también por tabindex="-1" en desc)
+    codInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); cantInput.focus(); cantInput.select(); }
+    });
+
     setupDrop(descInput, descDrop, 'descHl', 'desc');
 
-    // Enter en cant → bpp, en bpp → siguiente fila
-    cantInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') { e.preventDefault(); bppInput.focus(); bppInput.select(); }
+    // Bug 2: si el usuario sale del campo código sin seleccionar del dropdown,
+    // intentar completar descripción por coincidencia exacta de código
+    codInput.addEventListener('blur', function() {
+        const cod = this.value.trim();
+        if (!cod || artId.value) return;
+        fetch(AC_URL + '?q=' + encodeURIComponent(cod))
+            .then(r => r.json())
+            .then(data => {
+                const match = data.find(a => a.codigo.toLowerCase() === cod.toLowerCase());
+                if (match) {
+                    const pres = match.presentacion ? ' - ' + match.presentacion : '';
+                    artId.value     = match.id;
+                    codInput.value  = match.codigo;
+                    descInput.value = match.descripcion + pres;
+                    bppInput.value  = match.bultos_por_pallet;
+                    recalcRow(row);
+                }
+            });
     });
-    bppInput.addEventListener('keydown', function(e) {
+
+    // Bug 3: al hacer foco en descripción, mostrar dropdown con valor actual
+    descInput.addEventListener('focus', function() {
+        const q = this.value.trim();
+        if (!q) return;
+        fetch(AC_URL + '?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(data => {
+                if (!data.length) { descDrop.style.display = 'none'; return; }
+                descDrop.innerHTML = data.map(artHTML).join('');
+                descDrop.querySelectorAll('.ac-item').forEach(el =>
+                    el.addEventListener('mousedown', ev => { ev.preventDefault(); selectArt(el); })
+                );
+                descDrop.style.display = 'block';
+            });
+    });
+
+    // Enter en cantidad → siguiente fila
+    cantInput.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const rows = Array.from(document.querySelectorAll('#tbody-items .item-row'));
@@ -741,7 +776,7 @@ function initRowAC(row) {
         }
     });
 
-    [cantInput, bppInput].forEach(inp => inp.addEventListener('input', () => recalcRow(row)));
+    cantInput.addEventListener('input', () => recalcRow(row));
 }
 
 function navEnter(nextEl) {
@@ -809,6 +844,7 @@ document.getElementById('btn-agregar-fila').addEventListener('click', function()
     tr.innerHTML = `
       <td class="col-cod">
         <input type="hidden" name="items[${idx}][articulo_id]" class="item-art-id" value="">
+        <input type="hidden" name="items[${idx}][bultos_por_pallet]" class="item-bpp" value="">
         <div class="ac-wrap">
           <input type="text" name="items[${idx}][codigo]"
                  class="form-control form-control-sm item-cod font-monospace" autocomplete="off">
@@ -818,17 +854,13 @@ document.getElementById('btn-agregar-fila').addEventListener('click', function()
       <td class="col-desc">
         <div class="ac-wrap">
           <input type="text" name="items[${idx}][descripcion]"
-                 class="form-control form-control-sm item-desc" autocomplete="off">
+                 class="form-control form-control-sm item-desc" autocomplete="off" tabindex="-1">
           <div class="ac-drop desc-drop"></div>
         </div>
       </td>
       <td class="col-cant">
         <input type="text" name="items[${idx}][cantidad]"
                class="form-control form-control-sm item-cant text-end" inputmode="decimal">
-      </td>
-      <td class="col-bpp">
-        <input type="text" name="items[${idx}][bultos_por_pallet]"
-               class="form-control form-control-sm item-bpp text-end" inputmode="decimal">
       </td>
       <td class="col-pal pallets-calc" data-pallets=""></td>
       <td class="col-del">
@@ -953,6 +985,17 @@ document.getElementById('btn_arca').addEventListener('click', function() {
             st.className = 'form-text text-danger';
         });
 });
+
+// Autofocus: si viene de "Guardar y otro" foco en fecha, si no en proveedor
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('ok')) {
+        document.getElementById('fecha_remito').focus();
+        document.getElementById('fecha_remito').select();
+    } else {
+        document.querySelector('select[name=proveedor_id]').focus();
+    }
+})();
 
 document.getElementById('btn_guardar_cliente').addEventListener('click', function() {
     const nombre = document.getElementById('nc_nombre').value.trim();
