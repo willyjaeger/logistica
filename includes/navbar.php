@@ -27,14 +27,14 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                         <i class="bi bi-file-earmark-text me-1"></i>Remitos
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?= url('modules/remitos/lista.php') ?>">
+                        <li><a class="dropdown-item" href="<?= url('modules/remitos_lista.php') ?>">
                             <i class="bi bi-list-ul me-2"></i>Ver todos
                         </a></li>
-                        <li><a class="dropdown-item" href="<?= url('modules/remitos/form.php') ?>">
+                        <li><a class="dropdown-item" href="<?= url('modules/remitos_form.php') ?>">
                             <i class="bi bi-plus-circle me-2"></i>Nuevo remito
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-muted" href="<?= url('modules/remitos/lista.php') ?>?estado=pendiente">
+                        <li><a class="dropdown-item text-muted" href="<?= url('modules/remitos_lista.php') ?>?estado=pendiente">
                             <i class="bi bi-clock me-2"></i>Pendientes
                         </a></li>
                     </ul>

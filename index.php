@@ -84,7 +84,7 @@ $nav_modulo = 'panel';
             <h5 class="fw-bold mb-0">Buen día, <?= h(usuario_nombre()) ?></h5>
             <small class="text-muted"><?= strftime('%A %e de %B de %Y') ?: date('d/m/Y') ?></small>
         </div>
-        <a href="<?= url('modules/remitos/form.php') ?>" class="btn btn-primary">
+        <a href="<?= url('modules/remitos_form.php') ?>" class="btn btn-primary">
             <i class="bi bi-plus-lg me-2"></i>Nuevo remito
         </a>
     </div>
@@ -103,7 +103,7 @@ $nav_modulo = 'panel';
         </div>
 
         <div class="col-6 col-md-4 col-xl-2">
-            <a href="<?= url('modules/remitos/lista.php') ?>?estado=pendiente" class="text-decoration-none">
+            <a href="<?= url('modules/remitos_lista.php') ?>?estado=pendiente" class="text-decoration-none">
             <div class="card border-0 shadow-sm h-100 stat-card stat-naranja">
                 <div class="card-body">
                     <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
@@ -167,10 +167,10 @@ $nav_modulo = 'panel';
                     <i class="bi bi-lightning-charge-fill text-warning me-2"></i>Acciones rápidas
                 </div>
                 <div class="card-body d-grid gap-2">
-                    <a href="<?= url('modules/remitos/form.php') ?>" class="btn btn-outline-primary text-start">
+                    <a href="<?= url('modules/remitos_form.php') ?>" class="btn btn-outline-primary text-start">
                         <i class="bi bi-plus-circle me-2"></i>Nuevo remito
                     </a>
-                    <a href="<?= url('modules/remitos/lista.php') ?>?estado=pendiente" class="btn btn-outline-warning text-start">
+                    <a href="<?= url('modules/remitos_lista.php') ?>?estado=pendiente" class="btn btn-outline-warning text-start">
                         <i class="bi bi-hourglass-split me-2"></i>Remitos pendientes
                     </a>
                     <a href="<?= url('modules/entregas/nueva.php') ?>" class="btn btn-outline-success text-start">
@@ -190,7 +190,7 @@ $nav_modulo = 'panel';
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white fw-semibold border-0 pb-0 d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-clock-history text-primary me-2"></i>Últimos remitos</span>
-                    <a href="<?= url('modules/remitos/lista.php') ?>" class="btn btn-sm btn-outline-primary">Ver todos</a>
+                    <a href="<?= url('modules/remitos_lista.php') ?>" class="btn btn-sm btn-outline-primary">Ver todos</a>
                 </div>
                 <div class="card-body p-0">
                     <?php if (empty($ultimos_remitos)): ?>
@@ -228,7 +228,7 @@ $nav_modulo = 'panel';
                                 </td>
                                 <td><span class="badge <?= $cls ?>"><?= $lbl ?></span></td>
                                 <td>
-                                    <a href="<?= url("modules/remitos/form.php?id={$r['id']}") ?>"
+                                    <a href="<?= url("modules/remitos_form.php?id={$r['id']}") ?>"
                                        class="btn btn-sm btn-outline-secondary">
                                         <i class="bi bi-pencil"></i>
                                     </a>

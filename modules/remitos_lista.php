@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../config/auth.php';
 require_login();
 
 $db  = db();
@@ -126,14 +126,14 @@ $nav_modulo = 'remitos';
 </head>
 <body>
 
-<?php require_once __DIR__ . '/../../includes/navbar.php'; ?>
+<?php require_once __DIR__ . '/../includes/navbar.php'; ?>
 
 <div class="container-fluid py-3 px-4">
 
     <!-- Encabezado -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Remitos</h5>
-        <a href="<?= url('modules/remitos/form.php') ?>" class="btn btn-primary">
+        <a href="<?= url('modules/remitos_form.php') ?>" class="btn btn-primary">
             <i class="bi bi-plus-lg me-1"></i>Nuevo remito
         </a>
     </div>
@@ -179,7 +179,7 @@ $nav_modulo = 'remitos';
                 <i class="bi bi-search me-1"></i>Filtrar
             </button>
             <?php if ($q || $estado || $desde || $hasta): ?>
-            <a href="<?= url('modules/remitos/lista.php') ?>" class="btn btn-sm btn-link text-muted">Limpiar</a>
+            <a href="<?= url('modules/remitos_lista.php') ?>" class="btn btn-sm btn-link text-muted">Limpiar</a>
             <?php endif; ?>
         </div>
     </form>
@@ -244,11 +244,11 @@ $nav_modulo = 'remitos';
                             <?php else: ?>—<?php endif; ?>
                         </td>
                         <td class="text-end pe-3">
-                            <a href="<?= url("modules/remitos/form.php?id={$r['id']}") ?>"
+                            <a href="<?= url("modules/remitos_form.php?id={$r['id']}") ?>"
                                class="btn btn-sm btn-outline-primary" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form method="POST" action="<?= url('modules/remitos/eliminar.php') ?>"
+                            <form method="POST" action="<?= url('modules/remitos_eliminar.php') ?>"
                                   class="d-inline"
                                   onsubmit="return confirm('¿Eliminar el remito <?= h($r['nro_remito_propio']) ?>?')">
                                 <input type="hidden" name="id" value="<?= $r['id'] ?>">

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../config/auth.php';
 require_login();
 ini_set('display_errors', 0);
 header('Content-Type: application/json; charset=utf-8');

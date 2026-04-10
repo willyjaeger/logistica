@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../config/auth.php';
 require_login();
 
 $db  = db();
@@ -21,7 +21,7 @@ if ($edit_id > 0) {
     $stmt->execute([$edit_id, $eid]);
     $remito = $stmt->fetch();
     if (!$remito) {
-        header('Location: ' . url('modules/remitos/lista.php'));
+        header('Location: ' . url('modules/remitos_lista.php'));
         exit;
     }
 
@@ -176,7 +176,7 @@ $nav_modulo = 'remitos';
 </head>
 <body>
 
-<?php require_once __DIR__ . '/../../includes/navbar.php'; ?>
+<?php require_once __DIR__ . '/../includes/navbar.php'; ?>
 
 <!-- ═══ BARRA STICKY: PALLETS + GUARDAR ══════════════════════ -->
 <div class="barra-pallets">
@@ -204,7 +204,7 @@ $nav_modulo = 'remitos';
 
     <!-- Título -->
     <div class="d-flex align-items-center gap-2 mb-3">
-        <a href="<?= url('modules/remitos/lista.php') ?>" class="btn btn-sm btn-outline-secondary">
+        <a href="<?= url('modules/remitos_lista.php') ?>" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-left"></i>
         </a>
         <h5 class="fw-bold mb-0"><?= $titulo ?></h5>
@@ -223,7 +223,7 @@ $nav_modulo = 'remitos';
     </div>
     <?php endif; ?>
 
-    <form id="form-remito" method="POST" action="<?= url('modules/remitos/guardar.php') ?>">
+    <form id="form-remito" method="POST" action="<?= url('modules/remitos_guardar.php') ?>">
         <input type="hidden" name="remito_id" value="<?= $edit_id ?>">
         <!-- total_pallets se sincroniza desde el input de la barra -->
         <input type="hidden" name="total_pallets" id="total_pallets_hidden"
@@ -470,7 +470,7 @@ $nav_modulo = 'remitos';
 
         <!-- ─── BOTÓN GUARDAR INFERIOR ────────────────────────── -->
         <div class="d-flex justify-content-end gap-2 mt-2 mb-4">
-            <a href="<?= url('modules/remitos/lista.php') ?>" class="btn btn-outline-secondary">Cancelar</a>
+            <a href="<?= url('modules/remitos_lista.php') ?>" class="btn btn-outline-secondary">Cancelar</a>
             <?php if (!$edit_id): ?>
             <button type="submit" name="accion" value="guardar_y_otro" class="btn btn-outline-primary">
                 <i class="bi bi-plus-circle me-1"></i>Guardar y otro
@@ -557,7 +557,7 @@ function cliSelect(el) {
 }
 
 function cliBuscar(q) {
-    fetch('<?= url('modules/remitos/ac_clientes.php') ?>?q=' + encodeURIComponent(q))
+    fetch('<?= url('modules/remitos_ac_clientes.php') ?>?q=' + encodeURIComponent(q))
         .then(r => r.json()).then(data => {
             cliHl = -1;
             if (!data.length) { cliDrop.style.display = 'none'; return; }
@@ -618,7 +618,7 @@ document.addEventListener('click', e => {
 // AUTOCOMPLETE ARTÍCULOS (delega a cada fila)
 // Código y Descripción tienen su propio dropdown
 // ═══════════════════════════════════════════════════════════════
-const AC_URL = '<?= url('modules/remitos/ac_articulos.php') ?>';
+const AC_URL = '<?= url('modules/remitos_ac_articulos.php') ?>';
 
 function initRowAC(row) {
     const codInput  = row.querySelector('.item-cod');
@@ -966,7 +966,7 @@ document.getElementById('btn_arca').addEventListener('click', function() {
     st.textContent = 'Consultando ARCA...';
     st.className = 'form-text text-muted';
 
-    fetch('<?= url('modules/remitos/afip_lookup.php') ?>?cuit=' + cuit)
+    fetch('<?= url('modules/remitos_afip_lookup.php') ?>?cuit=' + cuit)
         .then(r => r.json())
         .then(d => {
             btn.disabled = false;
@@ -1014,7 +1014,7 @@ document.getElementById('btn_guardar_cliente').addEventListener('click', functio
     fd.append('localidad', loc);
 
     this.disabled = true;
-    fetch('<?= url('modules/remitos/guardar_cliente.php') ?>', { method: 'POST', body: fd })
+    fetch('<?= url('modules/remitos_guardar_cliente.php') ?>', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(d => {
             this.disabled = false;

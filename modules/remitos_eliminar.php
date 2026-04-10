@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../config/auth.php';
 require_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: ' . url('modules/remitos/lista.php'));
+    header('Location: ' . url('modules/remitos_lista.php'));
     exit;
 }
 
@@ -12,7 +12,7 @@ $db  = db();
 $eid = empresa_id();
 
 if ($id <= 0) {
-    header('Location: ' . url('modules/remitos/lista.php'));
+    header('Location: ' . url('modules/remitos_lista.php'));
     exit;
 }
 
@@ -21,7 +21,7 @@ $stmt = $db->prepare("SELECT ingreso_id FROM remitos WHERE id = ? AND empresa_id
 $stmt->execute([$id, $eid]);
 $rem = $stmt->fetch();
 if (!$rem) {
-    header('Location: ' . url('modules/remitos/lista.php'));
+    header('Location: ' . url('modules/remitos_lista.php'));
     exit;
 }
 
@@ -38,5 +38,5 @@ if ((int)$cnt->fetchColumn() === 0) {
     $db->prepare("DELETE FROM ingresos WHERE id = ? AND empresa_id = ?")->execute([$rem['ingreso_id'], $eid]);
 }
 
-header('Location: ' . url('modules/remitos/lista.php') . '?borrado=1');
+header('Location: ' . url('modules/remitos_lista.php') . '?borrado=1');
 exit;

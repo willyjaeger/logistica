@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../config/auth.php';
 require_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: ' . url('modules/remitos/lista.php'));
+    header('Location: ' . url('modules/remitos_lista.php'));
     exit;
 }
 
@@ -37,8 +37,8 @@ if ($errores) {
     $_SESSION['form_error'] = implode(' ', $errores);
     $_SESSION['form_post']  = $_POST;
     $back = $remito_id > 0
-        ? url("modules/remitos/form.php?id=$remito_id")
-        : url('modules/remitos/form.php');
+        ? url("modules/remitos_form.php?id=$remito_id")
+        : url('modules/remitos_form.php');
     header('Location: ' . $back);
     exit;
 }
@@ -50,7 +50,7 @@ if ($remito_id > 0) {
     $stmt->execute([$remito_id, $eid]);
     $row = $stmt->fetch();
     if (!$row) {
-        header('Location: ' . url('modules/remitos/lista.php'));
+        header('Location: ' . url('modules/remitos_lista.php'));
         exit;
     }
     $ingreso_id = $row['ingreso_id'];
@@ -145,8 +145,8 @@ foreach ($items as $it) {
 // ── Redirección ───────────────────────────────────────────────
 $accion = $_POST['accion'] ?? 'guardar';
 if ($accion === 'guardar_y_otro') {
-    header('Location: ' . url('modules/remitos/form.php') . '?ok=1');
+    header('Location: ' . url('modules/remitos_form.php') . '?ok=1');
 } else {
-    header('Location: ' . url('modules/remitos/lista.php') . '?ok=1');
+    header('Location: ' . url('modules/remitos_lista.php') . '?ok=1');
 }
 exit;
