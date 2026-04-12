@@ -9,30 +9,35 @@ $desde    = $_GET['desde']    ?? '';
 $hasta    = $_GET['hasta']    ?? '';
 $prov_fil = (int)($_GET['proveedor_id'] ?? 0);
 
-// Construir query
 $where  = ['e.empresa_id = ?'];
 $params = [$eid];
 
-if ($desde) { $where[] = 'e.fecha >= ?'; $params[] = $desde; }
-if ($hasta) { $where[] = 'e.fecha <= ?'; $params[] = $hasta; }
+if ($desde) { $where[] = 'DATE(e.fecha_salida) >= ?'; $params[] = $desde; }
+if ($hasta) { $where[] = 'DATE(e.fecha_salida) <= ?'; $params[] = $hasta; }
 
 $sql = "
-    SELECT e.id, e.fecha, e.chofer, e.patente, e.transportista, e.observaciones,
-           COUNT(er.remito_id)        AS nro_remitos,
-           SUM(r.total_pallets)       AS total_pallets
+    SELECT e.id, DATE(e.fecha_salida) AS fecha, e.observaciones,
+           t.nombre  AS transportista,
+           cam.patente,
+           ch.nombre AS chofer,
+           COUNT(er.remito_id) AS nro_remitos,
+           SUM(r.total_pallets) AS total_pallets
     FROM entregas e
     JOIN entrega_remitos er ON er.entrega_id = e.id
     JOIN remitos r           ON r.id = er.remito_id
+    LEFT JOIN transportistas t ON t.id = e.transportista_id
+    LEFT JOIN camiones cam     ON cam.id = e.camion_id
+    LEFT JOIN choferes ch      ON ch.id = e.chofer_id
     WHERE " . implode(' AND ', $where) . "
     GROUP BY e.id
-    ORDER BY e.fecha DESC, e.id DESC
+    ORDER BY e.fecha_salida DESC, e.id DESC
     LIMIT 200
 ";
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $entregas = $stmt->fetchAll();
 
-// Cargar remitos de cada entrega visible (con filtro de proveedor si aplica)
+// Detalle de remitos por entrega
 $items_map = [];
 if ($entregas) {
     $ids = implode(',', array_column($entregas, 'id'));
@@ -52,13 +57,11 @@ if ($entregas) {
     foreach ($ri->fetchAll() as $row) {
         $items_map[$row['entrega_id']][] = $row;
     }
-    // Si hay filtro de proveedor, mantener solo entregas que tienen esos remitos
     if ($prov_fil) {
         $entregas = array_filter($entregas, fn($e) => isset($items_map[$e['id']]));
     }
 }
 
-// Proveedores para filtro
 $provs = $db->query("SELECT id, nombre FROM proveedores WHERE activo=1 ORDER BY nombre")->fetchAll();
 
 $nav_modulo = 'entregas';
@@ -163,7 +166,6 @@ $nav_modulo = 'entregas';
     </div>
     <?php endif; ?>
 
-    <!-- Tabla -->
     <div class="card">
         <div class="card-body p-0">
             <?php if (empty($entregas)): ?>
@@ -178,8 +180,9 @@ $nav_modulo = 'entregas';
                         <tr>
                             <th style="width:28px" class="no-print"></th>
                             <th>Fecha</th>
-                            <th>Transportista / Chofer</th>
+                            <th>Transportista</th>
                             <th>Patente</th>
+                            <th>Chofer</th>
                             <th class="text-center">Remitos</th>
                             <th class="text-center">Pallets</th>
                             <th class="no-print"></th>
@@ -197,13 +200,9 @@ $nav_modulo = 'entregas';
                             </button>
                         </td>
                         <td class="fw-semibold"><?= "$d/$m/$y" ?></td>
-                        <td>
-                            <?= h($e['transportista'] ?? '—') ?>
-                            <?php if ($e['chofer']): ?>
-                            <small class="text-muted ms-1">/ <?= h($e['chofer']) ?></small>
-                            <?php endif; ?>
-                        </td>
+                        <td><?= h($e['transportista'] ?? '—') ?></td>
                         <td class="font-monospace"><?= h($e['patente'] ?? '—') ?></td>
+                        <td class="text-muted small"><?= h($e['chofer'] ?? '—') ?></td>
                         <td class="text-center">
                             <span class="badge bg-secondary"><?= $e['nro_remitos'] ?></span>
                         </td>
@@ -227,7 +226,7 @@ $nav_modulo = 'entregas';
                         </td>
                     </tr>
                     <tr id="items-<?= $e['id'] ?>" class="row-remitos d-none">
-                        <td colspan="7">
+                        <td colspan="8">
                             <?php if ($items): ?>
                             <table class="table table-sm mb-0">
                                 <thead>
@@ -239,9 +238,7 @@ $nav_modulo = 'entregas';
                                     </tr>
                                 </thead>
                                 <tbody>
-                                <?php foreach ($items as $it):
-                                    [$ry,$rm,$rd] = explode('-', substr($it['fecha_entrega'] ?? date('Y-m-d'), 0, 10));
-                                ?>
+                                <?php foreach ($items as $it): ?>
                                 <tr>
                                     <td class="fw-semibold font-monospace"><?= h($it['nro_remito_propio']) ?></td>
                                     <td><?= h($it['cliente']) ?></td>
@@ -250,9 +247,7 @@ $nav_modulo = 'entregas';
                                 </tr>
                                 <?php endforeach; ?>
                                 </tbody>
-                                <?php
-                                $total_pal = array_sum(array_column($items, 'total_pallets'));
-                                ?>
+                                <?php $total_pal = array_sum(array_column($items, 'total_pallets')); ?>
                                 <tfoot class="fw-bold">
                                     <tr>
                                         <td colspan="3" class="text-end">Total</td>

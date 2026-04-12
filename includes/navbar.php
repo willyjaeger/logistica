@@ -1,5 +1,5 @@
 <?php
-// $nav_modulo: 'panel' | 'ingresos' | 'remitos' | 'entregas' | 'stock' | 'reportes' | 'config'
+// $nav_modulo: 'panel' | 'ingresos' | 'remitos' | 'entregas' | 'transportistas' | 'stock' | 'reportes' | 'config'
 // Debe estar definida antes de incluir este archivo.
 if (!isset($nav_modulo)) $nav_modulo = '';
 ?>
@@ -41,7 +41,7 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                 </li>
 
                 <li class="nav-item dropdown">
-                    <a class="nav-link<?= $nav_modulo === 'entregas' ? ' active' : '' ?> dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                    <a class="nav-link<?= in_array($nav_modulo, ['entregas','transportistas']) ? ' active' : '' ?> dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-truck me-1"></i>Entregas
                     </a>
                     <ul class="dropdown-menu">
@@ -50,6 +50,10 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                         </a></li>
                         <li><a class="dropdown-item" href="<?= url('modules/entregas_form.php') ?>">
                             <i class="bi bi-plus-circle me-2"></i>Armar entrega
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="<?= url('modules/transportistas_lista.php') ?>">
+                            <i class="bi bi-person-vcard me-2"></i>Transportistas
                         </a></li>
                     </ul>
                 </li>

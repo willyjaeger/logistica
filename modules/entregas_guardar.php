@@ -10,30 +10,44 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $db  = db();
 $eid = empresa_id();
 
-$fecha         = $_POST['fecha']         ?? date('Y-m-d');
-$chofer        = trim($_POST['chofer']        ?? '');
-$patente       = trim($_POST['patente']       ?? '');
-$transportista = trim($_POST['transportista'] ?? '');
-$observaciones = trim($_POST['observaciones'] ?? '');
-$remitos_ids   = array_filter(array_map('intval', $_POST['remitos'] ?? []));
+$fecha            = $_POST['fecha']            ?? date('Y-m-d');
+$transportista_id = (int)($_POST['transportista_id'] ?? 0) ?: null;
+$camion_id        = (int)($_POST['camion_id']        ?? 0) ?: null;
+$chofer_id        = (int)($_POST['chofer_id']        ?? 0) ?: null;
+$observaciones    = trim($_POST['observaciones']     ?? '');
+$remitos_ids      = array_filter(array_map('intval', $_POST['remitos'] ?? []));
 
-// Validación
 if (empty($remitos_ids)) {
     $_SESSION['form_error'] = 'Seleccioná al menos un remito.';
     header('Location: ' . url('modules/entregas_form.php'));
     exit;
 }
 
+// Verificar que transportista/camion/chofer pertenecen a esta empresa
+if ($transportista_id) {
+    $st = $db->prepare("SELECT id FROM transportistas WHERE id = ? AND empresa_id = ?");
+    $st->execute([$transportista_id, $eid]);
+    if (!$st->fetch()) $transportista_id = null;
+}
+if ($camion_id && $transportista_id) {
+    $st = $db->prepare("SELECT id FROM camiones WHERE id = ? AND transportista_id = ?");
+    $st->execute([$camion_id, $transportista_id]);
+    if (!$st->fetch()) $camion_id = null;
+}
+if ($chofer_id && $transportista_id) {
+    $st = $db->prepare("SELECT id FROM choferes WHERE id = ? AND transportista_id = ?");
+    $st->execute([$chofer_id, $transportista_id]);
+    if (!$st->fetch()) $chofer_id = null;
+}
+
 $db->beginTransaction();
 try {
-    // Insertar entrega
     $db->prepare("
-        INSERT INTO entregas (empresa_id, fecha, chofer, patente, transportista, observaciones)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ")->execute([$eid, $fecha, $chofer ?: null, $patente ?: null, $transportista ?: null, $observaciones ?: null]);
+        INSERT INTO entregas (empresa_id, fecha, transportista_id, camion_id, chofer_id, observaciones, fecha_salida)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ")->execute([$eid, $fecha, $transportista_id, $camion_id, $chofer_id, $observaciones ?: null, $fecha]);
     $entrega_id = (int)$db->lastInsertId();
 
-    // Vincular remitos y marcarlos como entregados
     $ins = $db->prepare("INSERT INTO entrega_remitos (entrega_id, remito_id) VALUES (?, ?)");
     $upd = $db->prepare("UPDATE remitos SET estado='entregado', fecha_entrega=? WHERE id=? AND empresa_id=?");
 

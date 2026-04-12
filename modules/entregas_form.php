@@ -5,21 +5,34 @@ require_login();
 $db  = db();
 $eid = empresa_id();
 
-// Remitos pendientes (no entregados)
+// Remitos pendientes de entrega
 $stmt = $db->prepare("
     SELECT r.id, r.nro_remito_propio, r.total_pallets, r.proveedor_id,
            c.nombre AS cliente,
            p.nombre AS proveedor,
            i.fecha_ingreso
     FROM remitos r
-    JOIN clientes c ON r.cliente_id = c.id
+    JOIN clientes c   ON r.cliente_id  = c.id
     LEFT JOIN proveedores p ON r.proveedor_id = p.id
-    JOIN ingresos i ON r.ingreso_id = i.id
+    JOIN ingresos i   ON r.ingreso_id  = i.id
     WHERE r.empresa_id = ? AND r.estado NOT IN ('entregado')
     ORDER BY i.fecha_ingreso ASC, r.id ASC
 ");
 $stmt->execute([$eid]);
 $pendientes = $stmt->fetchAll();
+
+// Transportistas activos con sus camiones y choferes
+$trans = $db->prepare("SELECT id, nombre, cuit, telefono FROM transportistas WHERE empresa_id = ? AND activo = 1 ORDER BY nombre");
+$trans->execute([$eid]);
+$transportistas = $trans->fetchAll();
+
+$cam = $db->prepare("SELECT id, transportista_id, patente, marca, modelo FROM camiones WHERE activo = 1 AND empresa_id = ? ORDER BY patente");
+$cam->execute([$eid]);
+$camiones = $cam->fetchAll();
+
+$cho = $db->prepare("SELECT id, transportista_id, nombre FROM choferes WHERE activo = 1 AND empresa_id = ? ORDER BY nombre");
+$cho->execute([$eid]);
+$choferes_all = $cho->fetchAll();
 
 // Proveedores para filtro
 $provs = $db->query("SELECT id, nombre FROM proveedores WHERE activo=1 ORDER BY nombre")->fetchAll();
@@ -70,6 +83,7 @@ $nav_modulo = 'entregas';
         #tabla-remitos td { vertical-align: middle; padding: .4rem .6rem; font-size: .9rem; }
         .pallets-badge { font-size: .85rem; font-weight: 700; color: #0d6efd; }
         #filtro-buscar { max-width: 260px; }
+        .btn-nuevo { padding: .2rem .45rem; font-size: .8rem; }
     </style>
 </head>
 <body>
@@ -115,35 +129,70 @@ $nav_modulo = 'entregas';
 
     <form id="form-entrega" method="POST" action="<?= url('modules/entregas_guardar.php') ?>">
 
-        <!-- DATOS DEL CAMIÓN -->
+        <!-- DATOS DEL VIAJE -->
         <div class="seccion">
             <div class="seccion-titulo"><i class="bi bi-truck me-1"></i>Datos del viaje</div>
-            <div class="row g-2">
-                <div class="col-sm-2 col-lg-2">
+            <div class="row g-2 align-items-end">
+
+                <div class="col-sm-2">
                     <label class="form-label form-label-sm mb-1">Fecha <span class="text-danger">*</span></label>
                     <input type="date" name="fecha" class="form-control form-control-sm"
-                           value="<?= date('Y-m-d') ?>" required autofocus>
+                           value="<?= date('Y-m-d') ?>" required>
                 </div>
-                <div class="col-sm-3 col-lg-3">
+
+                <!-- TRANSPORTISTA -->
+                <div class="col-sm-3">
                     <label class="form-label form-label-sm mb-1">Transportista</label>
-                    <input type="text" name="transportista" class="form-control form-control-sm"
-                           placeholder="Empresa de transporte">
+                    <div class="input-group input-group-sm">
+                        <select name="transportista_id" id="sel-transportista" class="form-select form-select-sm">
+                            <option value="">— Seleccionar —</option>
+                            <?php foreach ($transportistas as $t): ?>
+                            <option value="<?= $t['id'] ?>"><?= h($t['nombre']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary btn-nuevo"
+                                title="Nuevo transportista" onclick="abrirModalTransportista()">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="col-sm-3 col-lg-3">
+
+                <!-- CAMIÓN -->
+                <div class="col-sm-3">
+                    <label class="form-label form-label-sm mb-1">Camión (patente)</label>
+                    <div class="input-group input-group-sm">
+                        <select name="camion_id" id="sel-camion" class="form-select form-select-sm" disabled>
+                            <option value="">— Primero elegí transportista —</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary btn-nuevo"
+                                id="btn-nuevo-camion" title="Nuevo camión" disabled
+                                onclick="abrirModalCamion()">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CHOFER -->
+                <div class="col-sm-3">
                     <label class="form-label form-label-sm mb-1">Chofer</label>
-                    <input type="text" name="chofer" class="form-control form-control-sm"
-                           placeholder="Nombre del chofer">
+                    <div class="input-group input-group-sm">
+                        <select name="chofer_id" id="sel-chofer" class="form-select form-select-sm" disabled>
+                            <option value="">— Primero elegí transportista —</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary btn-nuevo"
+                                id="btn-nuevo-chofer" title="Nuevo chofer" disabled
+                                onclick="abrirModalChofer()">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="col-sm-2 col-lg-2">
-                    <label class="form-label form-label-sm mb-1">Patente</label>
-                    <input type="text" name="patente" class="form-control form-control-sm"
-                           placeholder="ABC123">
-                </div>
-                <div class="col-sm-2 col-lg-2">
+
+                <div class="col-sm-12 col-lg">
                     <label class="form-label form-label-sm mb-1">Observaciones</label>
                     <input type="text" name="observaciones" class="form-control form-control-sm"
                            placeholder="Notas del viaje">
                 </div>
+
             </div>
         </div>
 
@@ -151,7 +200,6 @@ $nav_modulo = 'entregas';
         <div class="seccion">
             <div class="seccion-titulo"><i class="bi bi-file-earmark-text me-1"></i>Remitos a entregar</div>
 
-            <!-- Filtros -->
             <div class="d-flex gap-2 mb-2 flex-wrap">
                 <input type="text" id="filtro-buscar" class="form-control form-control-sm"
                        placeholder="Buscar cliente o nro remito...">
@@ -220,13 +268,276 @@ $nav_modulo = 'entregas';
     <?php endif; ?>
 </div>
 
+<!-- ==================== MODAL NUEVO TRANSPORTISTA ==================== -->
+<div class="modal fade" id="modalTransportista" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="bi bi-person-vcard me-2"></i>Nuevo transportista</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label form-label-sm fw-semibold">Nombre / Razón social <span class="text-danger">*</span></label>
+                    <input type="text" id="mt_nombre" class="form-control form-control-sm"
+                           placeholder="Ej: Transportes García">
+                </div>
+                <div class="row g-2">
+                    <div class="col">
+                        <label class="form-label form-label-sm fw-semibold">CUIT <span class="text-muted">(opcional)</span></label>
+                        <input type="text" id="mt_cuit" class="form-control form-control-sm font-monospace"
+                               placeholder="20-12345678-9">
+                    </div>
+                    <div class="col">
+                        <label class="form-label form-label-sm fw-semibold">Teléfono <span class="text-muted">(opcional)</span></label>
+                        <input type="text" id="mt_telefono" class="form-control form-control-sm"
+                               placeholder="011 1234-5678">
+                    </div>
+                </div>
+                <div class="mt-3 p-2 bg-light rounded small text-muted">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Podés agregar camiones y choferes después desde el módulo de Transportistas.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="guardarTransportista()">
+                    <i class="bi bi-floppy me-1"></i>Crear y seleccionar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL NUEVO CAMIÓN ==================== -->
+<div class="modal fade" id="modalCamion" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="bi bi-truck-front me-2"></i>Nuevo camión</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label form-label-sm fw-semibold">Patente <span class="text-danger">*</span></label>
+                    <input type="text" id="mc_patente" class="form-control form-control-sm font-monospace text-uppercase"
+                           placeholder="Ej: AB123CD">
+                </div>
+                <div class="row g-2">
+                    <div class="col">
+                        <label class="form-label form-label-sm fw-semibold">Marca <span class="text-muted">(opcional)</span></label>
+                        <input type="text" id="mc_marca" class="form-control form-control-sm"
+                               placeholder="Ej: Mercedes">
+                    </div>
+                    <div class="col">
+                        <label class="form-label form-label-sm fw-semibold">Modelo <span class="text-muted">(opcional)</span></label>
+                        <input type="text" id="mc_modelo" class="form-control form-control-sm"
+                               placeholder="Ej: Actros 1845">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="guardarCamion()">
+                    <i class="bi bi-floppy me-1"></i>Crear y seleccionar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL NUEVO CHOFER ==================== -->
+<div class="modal fade" id="modalChofer" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold"><i class="bi bi-person-badge me-2"></i>Nuevo chofer</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label form-label-sm fw-semibold">Nombre completo <span class="text-danger">*</span></label>
+                    <input type="text" id="mch_nombre" class="form-control form-control-sm"
+                           placeholder="Nombre y apellido">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label form-label-sm fw-semibold">Teléfono <span class="text-muted">(opcional)</span></label>
+                    <input type="text" id="mch_telefono" class="form-control form-control-sm"
+                           placeholder="Ej: 011 1234-5678">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning btn-sm" onclick="guardarChofer()">
+                    <i class="bi bi-floppy me-1"></i>Crear y seleccionar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 'use strict';
 
-const rows    = Array.from(document.querySelectorAll('.remito-row'));
-const cntRem  = document.getElementById('cnt-remitos');
-const cntPal  = document.getElementById('cnt-pallets');
+// Datos embebidos desde PHP
+const todosLosCamiones = <?= json_encode($camiones) ?>;
+const todosLosChoferes = <?= json_encode($choferes_all) ?>;
+
+const selTrans  = document.getElementById('sel-transportista');
+const selCamion = document.getElementById('sel-camion');
+const selChofer = document.getElementById('sel-chofer');
+const btnNuevoCamion = document.getElementById('btn-nuevo-camion');
+const btnNuevoChofer = document.getElementById('btn-nuevo-chofer');
+
+// ──── Dropdowns encadenados ────────────────────────────────────────────────
+function poblarDropdowns(tid) {
+    const cams = todosLosCamiones.filter(c => String(c.transportista_id) === String(tid));
+    const chos = todosLosChoferes.filter(c => String(c.transportista_id) === String(tid));
+
+    // Camiones
+    selCamion.innerHTML = '<option value="">— Sin especificar —</option>';
+    cams.forEach(c => {
+        const label = c.patente + (c.marca ? ' — ' + c.marca : '') + (c.modelo ? ' ' + c.modelo : '');
+        selCamion.innerHTML += `<option value="${c.id}">${label}</option>`;
+    });
+    selCamion.disabled = false;
+    btnNuevoCamion.disabled = false;
+    if (cams.length === 1) selCamion.value = cams[0].id;
+
+    // Choferes
+    selChofer.innerHTML = '<option value="">— Sin especificar —</option>';
+    chos.forEach(c => {
+        selChofer.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+    });
+    selChofer.disabled = false;
+    btnNuevoChofer.disabled = false;
+    if (chos.length === 1) selChofer.value = chos[0].id;
+}
+
+function limpiarDropdowns() {
+    selCamion.innerHTML = '<option value="">— Primero elegí transportista —</option>';
+    selCamion.disabled = true;
+    btnNuevoCamion.disabled = true;
+    selChofer.innerHTML = '<option value="">— Primero elegí transportista —</option>';
+    selChofer.disabled = true;
+    btnNuevoChofer.disabled = true;
+}
+
+selTrans.addEventListener('change', function () {
+    if (this.value) poblarDropdowns(this.value);
+    else limpiarDropdowns();
+});
+
+// ──── AJAX helper ─────────────────────────────────────────────────────────
+async function postAjax(url, data) {
+    data.ajax = '1';
+    const body = new URLSearchParams(data);
+    const r = await fetch(url, { method: 'POST', body });
+    return r.json();
+}
+
+// ──── Modal Transportista ──────────────────────────────────────────────────
+const mTrans = new bootstrap.Modal(document.getElementById('modalTransportista'));
+
+function abrirModalTransportista() {
+    document.getElementById('mt_nombre').value = '';
+    document.getElementById('mt_cuit').value = '';
+    document.getElementById('mt_telefono').value = '';
+    mTrans.show();
+    setTimeout(() => document.getElementById('mt_nombre').focus(), 300);
+}
+
+async function guardarTransportista() {
+    const nombre = document.getElementById('mt_nombre').value.trim();
+    if (!nombre) { document.getElementById('mt_nombre').focus(); return; }
+
+    const res = await postAjax('<?= url('modules/transportistas_guardar_ajax.php') ?>', {
+        nombre,
+        cuit:     document.getElementById('mt_cuit').value.trim(),
+        telefono: document.getElementById('mt_telefono').value.trim(),
+    });
+
+    if (!res.ok) { alert(res.error || 'Error al guardar'); return; }
+
+    // Agregar al select y seleccionar
+    const opt = new Option(res.nombre, res.id);
+    selTrans.appendChild(opt);
+    selTrans.value = res.id;
+    // Agregar a los arrays locales (sin camiones ni choferes aún)
+    mTrans.hide();
+    poblarDropdowns(res.id);
+}
+
+// ──── Modal Camión ─────────────────────────────────────────────────────────
+const mCamion = new bootstrap.Modal(document.getElementById('modalCamion'));
+
+function abrirModalCamion() {
+    document.getElementById('mc_patente').value = '';
+    document.getElementById('mc_marca').value = '';
+    document.getElementById('mc_modelo').value = '';
+    mCamion.show();
+    setTimeout(() => document.getElementById('mc_patente').focus(), 300);
+}
+
+async function guardarCamion() {
+    const patente = document.getElementById('mc_patente').value.trim().toUpperCase();
+    if (!patente) { document.getElementById('mc_patente').focus(); return; }
+
+    const tid = selTrans.value;
+    const res = await postAjax('<?= url('modules/camiones_guardar.php') ?>', {
+        accion:           'guardar',
+        transportista_id: tid,
+        patente,
+        marca:  document.getElementById('mc_marca').value.trim(),
+        modelo: document.getElementById('mc_modelo').value.trim(),
+    });
+
+    if (!res.ok) { alert(res.error || 'Error al guardar'); return; }
+
+    // Agregar al array local
+    todosLosCamiones.push({ id: res.id, transportista_id: tid, patente: res.patente,
+                             marca: document.getElementById('mc_marca').value.trim(),
+                             modelo: document.getElementById('mc_modelo').value.trim() });
+    mCamion.hide();
+    poblarDropdowns(tid);
+    selCamion.value = res.id;
+}
+
+// ──── Modal Chofer ─────────────────────────────────────────────────────────
+const mChofer = new bootstrap.Modal(document.getElementById('modalChofer'));
+
+function abrirModalChofer() {
+    document.getElementById('mch_nombre').value = '';
+    document.getElementById('mch_telefono').value = '';
+    mChofer.show();
+    setTimeout(() => document.getElementById('mch_nombre').focus(), 300);
+}
+
+async function guardarChofer() {
+    const nombre = document.getElementById('mch_nombre').value.trim();
+    if (!nombre) { document.getElementById('mch_nombre').focus(); return; }
+
+    const tid = selTrans.value;
+    const res = await postAjax('<?= url('modules/choferes_guardar.php') ?>', {
+        accion:           'guardar',
+        transportista_id: tid,
+        nombre,
+        telefono: document.getElementById('mch_telefono').value.trim(),
+    });
+
+    if (!res.ok) { alert(res.error || 'Error al guardar'); return; }
+
+    todosLosChoferes.push({ id: res.id, transportista_id: tid, nombre: res.nombre });
+    mChofer.hide();
+    poblarDropdowns(tid);
+    selChofer.value = res.id;
+}
+
+// ──── Tabla de remitos ─────────────────────────────────────────────────────
+const rows     = Array.from(document.querySelectorAll('.remito-row'));
+const cntRem   = document.getElementById('cnt-remitos');
+const cntPal   = document.getElementById('cnt-pallets');
 const chkTodos = document.getElementById('chk-todos');
 
 function actualizarContadores() {
@@ -237,9 +548,8 @@ function actualizarContadores() {
     rows.forEach(r => r.classList.toggle('seleccionado', r.querySelector('.chk-remito').checked));
 }
 
-// Click en fila → toggle checkbox
 rows.forEach(r => {
-    r.addEventListener('click', function(e) {
+    r.addEventListener('click', function (e) {
         if (e.target.type === 'checkbox') return;
         const chk = r.querySelector('.chk-remito');
         chk.checked = !chk.checked;
@@ -248,26 +558,24 @@ rows.forEach(r => {
     r.querySelector('.chk-remito').addEventListener('change', actualizarContadores);
 });
 
-// Checkbox cabecera → seleccionar visibles
 if (chkTodos) {
-    chkTodos.addEventListener('change', function() {
+    chkTodos.addEventListener('change', function () {
         rows.filter(r => !r.classList.contains('d-none'))
             .forEach(r => r.querySelector('.chk-remito').checked = this.checked);
         actualizarContadores();
     });
 }
 
-document.getElementById('btn-sel-todos').addEventListener('click', function() {
+document.getElementById('btn-sel-todos').addEventListener('click', function () {
     rows.filter(r => !r.classList.contains('d-none'))
         .forEach(r => r.querySelector('.chk-remito').checked = true);
     actualizarContadores();
 });
-document.getElementById('btn-sel-ninguno').addEventListener('click', function() {
+document.getElementById('btn-sel-ninguno').addEventListener('click', function () {
     rows.forEach(r => r.querySelector('.chk-remito').checked = false);
     actualizarContadores();
 });
 
-// Filtros
 function filtrar() {
     const txt  = document.getElementById('filtro-buscar').value.toLowerCase().trim();
     const prov = document.getElementById('filtro-prov').value;
