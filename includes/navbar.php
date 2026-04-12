@@ -45,10 +45,10 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                         <i class="bi bi-truck me-1"></i>Entregas
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?= url('modules/entregas/lista.php') ?>">
+                        <li><a class="dropdown-item" href="<?= url('modules/entregas_lista.php') ?>">
                             <i class="bi bi-list-ul me-2"></i>Ver todas
                         </a></li>
-                        <li><a class="dropdown-item" href="<?= url('modules/entregas/nueva.php') ?>">
+                        <li><a class="dropdown-item" href="<?= url('modules/entregas_form.php') ?>">
                             <i class="bi bi-plus-circle me-2"></i>Armar entrega
                         </a></li>
                     </ul>
