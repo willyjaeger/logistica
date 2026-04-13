@@ -124,8 +124,8 @@ document.addEventListener('keydown', function(e) {
     if (t.type === 'submit') return;
     e.preventDefault();
     const campos = Array.from(document.querySelectorAll(
-        'input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([disabled]),' +
-        'select:not([disabled]),textarea:not([disabled])'
+        'input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([disabled]):not([tabindex="-1"]),' +
+        'select:not([disabled]):not([tabindex="-1"]),textarea:not([disabled]):not([tabindex="-1"])'
     )).filter(el => el.offsetParent !== null && !el.readOnly);
     const idx = campos.indexOf(t);
     if (idx >= 0 && idx < campos.length - 1) {

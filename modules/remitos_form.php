@@ -351,6 +351,7 @@ $nav_modulo = 'remitos';
                 <div class="col-12">
                     <label class="form-label form-label-sm mb-1">Observaciones</label>
                     <textarea name="observaciones" class="form-control form-control-sm" rows="2"
+                              tabindex="-1"
                               placeholder="Notas adicionales sobre el remito..."><?= $form_post ? vp('observaciones') : h($remito['observaciones'] ?? '') ?></textarea>
                 </div>
             </div>
@@ -370,7 +371,7 @@ $nav_modulo = 'remitos';
             <div class="row g-2 align-items-end">
                 <div class="col-sm-5 col-lg-4">
                     <label class="form-label form-label-sm mb-1">Vincular a turno existente</label>
-                    <select name="turno_id" id="turno_id" class="form-select form-select-sm">
+                    <select name="turno_id" id="turno_id" class="form-select form-select-sm" tabindex="-1">
                         <option value="0">— sin turno —</option>
                         <option value="nuevo">+ Crear nuevo turno</option>
                         <?php foreach ($turnos_combo as $tr):
