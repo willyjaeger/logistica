@@ -1,5 +1,5 @@
 <?php
-// $nav_modulo: 'panel' | 'ingresos' | 'remitos' | 'entregas' | 'transportistas' | 'stock' | 'reportes' | 'config'
+// $nav_modulo: 'panel' | 'ingresos' | 'remitos' | 'entregas' | 'transportistas' | 'agenda' | 'stock' | 'reportes' | 'config'
 // Debe estar definida antes de incluir este archivo.
 if (!isset($nav_modulo)) $nav_modulo = '';
 ?>
@@ -59,6 +59,12 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                 </li>
 
                 <li class="nav-item">
+                    <a class="nav-link<?= $nav_modulo === 'agenda' ? ' active' : '' ?>" href="<?= url('modules/agenda.php') ?>">
+                        <i class="bi bi-calendar3 me-1"></i>Agenda
+                    </a>
+                </li>
+
+                <li class="nav-item">
                     <a class="nav-link<?= $nav_modulo === 'stock' ? ' active' : '' ?>" href="<?= url('modules/stock/lista.php') ?>">
                         <i class="bi bi-archive me-1"></i>Stock
                     </a>
@@ -108,3 +114,38 @@ if (!isset($nav_modulo)) $nav_modulo = '';
         </div>
     </div>
 </nav>
+<script>
+// ── Enter avanza al siguiente campo ──────────────────────────────
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    const t = e.target;
+    if (t.tagName === 'TEXTAREA') return;
+    if (t.tagName === 'BUTTON' || t.tagName === 'A') return;
+    if (t.type === 'submit') return;
+    e.preventDefault();
+    const campos = Array.from(document.querySelectorAll(
+        'input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([disabled]),' +
+        'select:not([disabled]),textarea:not([disabled])'
+    )).filter(el => el.offsetParent !== null && !el.readOnly);
+    const idx = campos.indexOf(t);
+    if (idx >= 0 && idx < campos.length - 1) {
+        campos[idx + 1].focus();
+    } else if (idx === campos.length - 1) {
+        // Último campo: buscar el botón submit del mismo form
+        const form = t.closest('form');
+        if (form) {
+            const btn = form.querySelector('[type=submit]');
+            if (btn) btn.focus();
+        }
+    }
+});
+
+// ── Seleccionar todo al enfocar un campo de texto ────────────────
+document.addEventListener('focusin', function(e) {
+    const t = e.target;
+    if ((t.tagName === 'INPUT') &&
+        !['checkbox','radio','file','range','color'].includes(t.type)) {
+        t.select();
+    }
+});
+</script>

@@ -5,6 +5,12 @@ require_login();
 $db  = db();
 $eid = empresa_id();
 
+// ── Auto-transición: en_camino de ayer → entregado ────────────
+$db->prepare("
+    UPDATE remitos SET estado='entregado'
+    WHERE empresa_id=? AND estado='en_camino' AND fecha_entrega < ?
+")->execute([$eid, date('Y-m-d')]);
+
 // ── Filtros ───────────────────────────────────────────────────
 $q        = trim($_GET['q']        ?? '');
 $estado   = $_GET['estado']        ?? '';
@@ -67,12 +73,15 @@ if ($remitos) {
     }
 }
 
-// ── Etiquetas estado ──────────────────────────────────────────
+// ── Etiquetas estado ──────────────────��───────────────────────
 $estado_label = [
-    'pendiente'             => ['bg-warning text-dark', 'Pendiente'],
-    'parcialmente_entregado'=> ['bg-info text-dark',    'Parcial'],
-    'entregado'             => ['bg-success',            'Entregado'],
-    'en_stock'              => ['bg-secondary',          'En stock'],
+    'pendiente'              => ['bg-warning text-dark', 'Pendiente'],
+    'parcialmente_entregado' => ['bg-info text-dark',    'Parcial'],
+    'entregado'              => ['bg-success',           'Entregado'],
+    'en_stock'               => ['bg-secondary',         'En stock'],
+    'turnado'                => ['bg-primary',           'Turnado'],
+    'programado'             => ['bg-info',              'Programado'],
+    'en_camino'              => ['bg-warning text-dark', 'En camino'],
 ];
 
 $nav_modulo = 'remitos';
@@ -244,6 +253,16 @@ $nav_modulo = 'remitos';
                             <?php else: ?>—<?php endif; ?>
                         </td>
                         <td class="text-end pe-3">
+                            <?php if (in_array($r['estado'], ['pendiente','turnado','programado'])): ?>
+                            <?php
+                                // Sugerir fecha: fecha_entrega si tiene, si no hoy
+                                $f_agenda = $r['fecha_entrega'] ?? date('Y-m-d');
+                            ?>
+                            <a href="<?= url('modules/entrega_dia_form.php') ?>?remito_id=<?= $r['id'] ?>&fecha=<?= $f_agenda ?>"
+                               class="btn btn-sm btn-outline-warning" title="Asignar a entrega">
+                                <i class="bi bi-calendar-plus"></i>
+                            </a>
+                            <?php endif; ?>
                             <a href="<?= url("modules/remitos_form.php?id={$r['id']}") ?>"
                                class="btn btn-sm btn-outline-primary" title="Editar">
                                 <i class="bi bi-pencil"></i>

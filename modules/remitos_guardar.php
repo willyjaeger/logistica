@@ -142,6 +142,68 @@ foreach ($items as $it) {
     ")->execute([$remito_id, $art_id, $desc, $cant, round($pallets_item, 4)]);
 }
 
+// ── Turno de entrega ──────────────────────────────────────────
+$turno_id_post      = $_POST['turno_id'] ?? '0';
+$nuevo_turno_fecha  = trim($_POST['nuevo_turno_fecha'] ?? '');
+$nuevo_turno_hora   = trim($_POST['nuevo_turno_hora']  ?? '') ?: null;
+$nuevo_turno_tipo   = in_array($_POST['nuevo_turno_tipo'] ?? '', ['turno','programado'])
+                      ? $_POST['nuevo_turno_tipo'] : 'turno';
+
+// Desvinculat turno previo si el remito tenía uno y ahora cambia
+$st_prev = $db->prepare("SELECT id FROM turnos WHERE remito_id=? AND empresa_id=?");
+$st_prev->execute([$remito_id, $eid]);
+$turno_previo = $st_prev->fetch();
+$turno_previo_id = $turno_previo ? (int)$turno_previo['id'] : 0;
+
+if ($turno_id_post === 'nuevo' && $nuevo_turno_fecha !== '') {
+    // Desvincular turno previo si existe y es diferente al que vamos a crear
+    if ($turno_previo_id) {
+        $db->prepare("UPDATE turnos SET remito_id=NULL WHERE id=? AND empresa_id=?")
+           ->execute([$turno_previo_id, $eid]);
+        $db->prepare("UPDATE remitos SET estado='pendiente' WHERE id=? AND empresa_id=?")
+           ->execute([$remito_id, $eid]);
+    }
+    // Crear nuevo turno
+    $estado_rem = $nuevo_turno_tipo === 'turno' ? 'turnado' : 'programado';
+    $db->prepare("
+        INSERT INTO turnos (empresa_id, fecha, tipo, hora_turno, cliente_id, remito_id)
+        VALUES (?,?,?,?,?,?)
+    ")->execute([$eid, $nuevo_turno_fecha, $nuevo_turno_tipo, $nuevo_turno_hora, $cliente_id ?: null, $remito_id]);
+    $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=? WHERE id=? AND empresa_id=?")
+       ->execute([$estado_rem, $nuevo_turno_fecha, $remito_id, $eid]);
+
+} elseif ((int)$turno_id_post > 0) {
+    $nuevo_tid = (int)$turno_id_post;
+    if ($nuevo_tid !== $turno_previo_id) {
+        // Desvincular turno previo
+        if ($turno_previo_id) {
+            $db->prepare("UPDATE turnos SET remito_id=NULL WHERE id=? AND empresa_id=?")
+               ->execute([$turno_previo_id, $eid]);
+        }
+        // Verificar que el turno seleccionado pertenece a la empresa y está libre
+        $st_t = $db->prepare("SELECT tipo FROM turnos WHERE id=? AND empresa_id=? AND (remito_id IS NULL OR remito_id=?)");
+        $st_t->execute([$nuevo_tid, $eid, $remito_id]);
+        $t_row = $st_t->fetch();
+        if ($t_row) {
+            $estado_rem = $t_row['tipo'] === 'turno' ? 'turnado' : 'programado';
+            $db->prepare("UPDATE turnos SET remito_id=? WHERE id=? AND empresa_id=?")
+               ->execute([$remito_id, $nuevo_tid, $eid]);
+            // Obtener fecha del turno para fecha_entrega
+            $st_tf = $db->prepare("SELECT fecha FROM turnos WHERE id=?");
+            $st_tf->execute([$nuevo_tid]);
+            $t_fecha = $st_tf->fetchColumn();
+            $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=? WHERE id=? AND empresa_id=?")
+               ->execute([$estado_rem, $t_fecha, $remito_id, $eid]);
+        }
+    }
+} elseif ((int)$turno_id_post === 0 && $turno_previo_id) {
+    // El usuario eligió "sin turno": desvincular turno previo
+    $db->prepare("UPDATE turnos SET remito_id=NULL WHERE id=? AND empresa_id=?")
+       ->execute([$turno_previo_id, $eid]);
+    $db->prepare("UPDATE remitos SET estado='pendiente', fecha_entrega=NULL WHERE id=? AND empresa_id=?")
+       ->execute([$remito_id, $eid]);
+}
+
 // ── Redirección ───────────────────────────────────────────────
 $accion = $_POST['accion'] ?? 'guardar';
 if ($accion === 'guardar_y_otro') {

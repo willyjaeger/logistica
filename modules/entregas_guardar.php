@@ -23,25 +23,24 @@ if (empty($remitos_ids)) {
     exit;
 }
 
-// Verificar que transportista/camion/chofer pertenecen a esta empresa
-if ($transportista_id) {
-    $st = $db->prepare("SELECT id FROM transportistas WHERE id = ? AND empresa_id = ?");
-    $st->execute([$transportista_id, $eid]);
-    if (!$st->fetch()) $transportista_id = null;
-}
-if ($camion_id && $transportista_id) {
-    $st = $db->prepare("SELECT id FROM camiones WHERE id = ? AND transportista_id = ?");
-    $st->execute([$camion_id, $transportista_id]);
-    if (!$st->fetch()) $camion_id = null;
-}
-if ($chofer_id && $transportista_id) {
-    $st = $db->prepare("SELECT id FROM choferes WHERE id = ? AND transportista_id = ?");
-    $st->execute([$chofer_id, $transportista_id]);
-    if (!$st->fetch()) $chofer_id = null;
-}
-
 $db->beginTransaction();
 try {
+    // Verificar que transportista/camion/chofer pertenecen a esta empresa
+    if ($transportista_id) {
+        $st = $db->prepare("SELECT id FROM transportistas WHERE id = ? AND empresa_id = ?");
+        $st->execute([$transportista_id, $eid]);
+        if (!$st->fetch()) $transportista_id = null;
+    }
+    if ($camion_id && $transportista_id) {
+        $st = $db->prepare("SELECT id FROM camiones WHERE id = ? AND transportista_id = ?");
+        $st->execute([$camion_id, $transportista_id]);
+        if (!$st->fetch()) $camion_id = null;
+    }
+    if ($chofer_id && $transportista_id) {
+        $st = $db->prepare("SELECT id FROM choferes WHERE id = ? AND transportista_id = ?");
+        $st->execute([$chofer_id, $transportista_id]);
+        if (!$st->fetch()) $chofer_id = null;
+    }
     $db->prepare("
         INSERT INTO entregas (empresa_id, fecha, transportista_id, camion_id, chofer_id, observaciones, fecha_salida)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -60,7 +59,7 @@ try {
 } catch (Exception $e) {
     $db->rollBack();
     error_log('entregas_guardar error: ' . $e->getMessage());
-    $_SESSION['form_error'] = 'Error al guardar la entrega. Intente nuevamente.';
+    $_SESSION['form_error'] = 'Error al guardar: ' . $e->getMessage();
     header('Location: ' . url('modules/entregas_form.php'));
     exit;
 }

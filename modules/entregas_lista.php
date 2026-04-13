@@ -16,21 +16,23 @@ if ($desde) { $where[] = 'DATE(e.fecha_salida) >= ?'; $params[] = $desde; }
 if ($hasta) { $where[] = 'DATE(e.fecha_salida) <= ?'; $params[] = $hasta; }
 
 $sql = "
-    SELECT e.id, DATE(e.fecha_salida) AS fecha, e.observaciones,
+    SELECT e.id,
+           COALESCE(e.fecha, DATE(e.fecha_salida)) AS fecha,
+           e.estado, e.observaciones,
            t.nombre  AS transportista,
            cam.patente,
            ch.nombre AS chofer,
            COUNT(er.remito_id) AS nro_remitos,
            SUM(r.total_pallets) AS total_pallets
     FROM entregas e
-    JOIN entrega_remitos er ON er.entrega_id = e.id
-    JOIN remitos r           ON r.id = er.remito_id
-    LEFT JOIN transportistas t ON t.id = e.transportista_id
-    LEFT JOIN camiones cam     ON cam.id = e.camion_id
-    LEFT JOIN choferes ch      ON ch.id = e.chofer_id
+    LEFT JOIN entrega_remitos er ON er.entrega_id = e.id
+    LEFT JOIN remitos r           ON r.id = er.remito_id
+    LEFT JOIN transportistas t   ON t.id = e.transportista_id
+    LEFT JOIN camiones cam        ON cam.id = e.camion_id
+    LEFT JOIN choferes ch         ON ch.id = e.chofer_id
     WHERE " . implode(' AND ', $where) . "
     GROUP BY e.id
-    ORDER BY e.fecha_salida DESC, e.id DESC
+    ORDER BY COALESCE(e.fecha, DATE(e.fecha_salida)) DESC, e.id DESC
     LIMIT 200
 ";
 $stmt = $db->prepare($sql);
@@ -63,6 +65,46 @@ if ($entregas) {
 }
 
 $provs = $db->query("SELECT id, nombre FROM proveedores WHERE activo=1 ORDER BY nombre")->fetchAll();
+
+// ── Exportar a Excel (CSV) ────────────────────────────────────
+if (isset($_GET['export'])) {
+    $estado_txt = [
+        'pendiente'       => 'Pendiente',
+        'armando'         => 'Armando',
+        'en_camino'       => 'En camino',
+        'completada'      => 'Completada',
+        'entregado'       => 'Entregada',
+        'con_incidencias' => 'Con incidencias',
+    ];
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="entregas_' . date('Ymd') . '.csv"');
+    $out = fopen('php://output', 'w');
+    fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM para Excel
+    fputcsv($out, ['Fecha','Estado','Transportista','Patente','Chofer','Remitos','Pallets'], ';');
+    foreach ($entregas as $e) {
+        [$y,$m,$d] = array_pad(explode('-', $e['fecha'] ?? '0000-00-00'), 3, '00');
+        fputcsv($out, [
+            "$d/$m/$y",
+            $estado_txt[$e['estado']] ?? $e['estado'],
+            $e['transportista'] ?? '',
+            $e['patente'] ?? '',
+            $e['chofer'] ?? '',
+            $e['nro_remitos'],
+            number_format((float)($e['total_pallets'] ?? 0), 1, ',', '.'),
+        ], ';');
+    }
+    fclose($out);
+    exit;
+}
+
+$estado_badge = [
+    'pendiente'       => ['bg-warning text-dark', 'Pendiente'],
+    'armando'         => ['bg-warning text-dark', 'Armando'],
+    'en_camino'       => ['bg-info text-dark',    'En camino'],
+    'completada'      => ['bg-success',           'Completada'],
+    'entregado'       => ['bg-success',            'Entregada'],
+    'con_incidencias' => ['bg-danger',             'Con incidencias'],
+];
 
 $nav_modulo = 'entregas';
 ?>
@@ -104,13 +146,22 @@ $nav_modulo = 'entregas';
 
 <div class="container-fluid py-3 px-4">
     <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="fw-bold mb-0"><i class="bi bi-truck me-2 text-success"></i>Entregas</h5>
+        <div class="d-flex align-items-center gap-2">
+            <a href="<?= url('modules/agenda.php') ?>" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Volver
+            </a>
+            <h5 class="fw-bold mb-0"><i class="bi bi-truck me-2 text-success"></i>Entregas</h5>
+        </div>
         <div class="d-flex gap-2 no-print">
             <?php if ($prov_fil): ?>
             <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-printer me-1"></i>Imprimir reporte
+                <i class="bi bi-printer me-1"></i>Imprimir
             </button>
             <?php endif; ?>
+            <a href="?<?= http_build_query(array_merge($_GET, ['export'=>1])) ?>"
+               class="btn btn-sm btn-outline-success">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </a>
             <a href="<?= url('modules/entregas_form.php') ?>" class="btn btn-success">
                 <i class="bi bi-plus-lg me-1"></i>Nueva entrega
             </a>
@@ -180,6 +231,7 @@ $nav_modulo = 'entregas';
                         <tr>
                             <th style="width:28px" class="no-print"></th>
                             <th>Fecha</th>
+                            <th>Estado</th>
                             <th>Transportista</th>
                             <th>Patente</th>
                             <th>Chofer</th>
@@ -193,6 +245,9 @@ $nav_modulo = 'entregas';
                         $items = $items_map[$e['id']] ?? [];
                         [$y,$m,$d] = explode('-', $e['fecha']);
                     ?>
+                    <?php
+                        [$eb_cls, $eb_lbl] = $estado_badge[$e['estado']] ?? ['bg-secondary', $e['estado'] ?: '—'];
+                    ?>
                     <tr class="entrega-row" onclick="toggleItems(this, <?= $e['id'] ?>)">
                         <td class="ps-2 no-print">
                             <button type="button" class="btn btn-expand btn-sm btn-outline-secondary rounded-circle">
@@ -200,6 +255,7 @@ $nav_modulo = 'entregas';
                             </button>
                         </td>
                         <td class="fw-semibold"><?= "$d/$m/$y" ?></td>
+                        <td><span class="badge <?= $eb_cls ?>"><?= $eb_lbl ?></span></td>
                         <td><?= h($e['transportista'] ?? '—') ?></td>
                         <td class="font-monospace"><?= h($e['patente'] ?? '—') ?></td>
                         <td class="text-muted small"><?= h($e['chofer'] ?? '—') ?></td>
@@ -213,11 +269,14 @@ $nav_modulo = 'entregas';
                             <span class="text-muted">—</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-end pe-3 no-print">
+                        <td class="text-end pe-3 no-print" onclick="event.stopPropagation()">
+                            <a href="<?= url('modules/entrega_dia_form.php') ?>?id=<?= $e['id'] ?>&back=lista"
+                               class="btn btn-sm btn-outline-primary me-1" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
                             <form method="POST" action="<?= url('modules/entregas_eliminar.php') ?>"
                                   class="d-inline"
-                                  onsubmit="return confirm('¿Eliminar esta entrega? Los remitos vuelven a estado pendiente.')"
-                                  onclick="event.stopPropagation()">
+                                  onsubmit="return confirm('¿Eliminar esta entrega?')">
                                 <input type="hidden" name="id" value="<?= $e['id'] ?>">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
                                     <i class="bi bi-trash"></i>
@@ -226,7 +285,7 @@ $nav_modulo = 'entregas';
                         </td>
                     </tr>
                     <tr id="items-<?= $e['id'] ?>" class="row-remitos d-none">
-                        <td colspan="8">
+                        <td colspan="9">
                             <?php if ($items): ?>
                             <table class="table table-sm mb-0">
                                 <thead>

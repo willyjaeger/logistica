@@ -58,6 +58,26 @@ $proveedores = $db->prepare("SELECT id, nombre FROM proveedores WHERE empresa_id
 $proveedores->execute([$eid]);
 $proveedores = $proveedores->fetchAll();
 
+// ── Turnos disponibles para vincular ──────────────────────────
+$st_tl = $db->prepare("
+    SELECT t.id, t.fecha, t.tipo, t.hora_turno, t.cliente_id,
+           c.nombre AS cliente_nombre
+    FROM turnos t
+    LEFT JOIN clientes c ON t.cliente_id = c.id
+    WHERE t.empresa_id = ? AND t.remito_id IS NULL AND t.estado = 'pendiente'
+    ORDER BY t.fecha, t.hora_turno
+");
+$st_tl->execute([$eid]);
+$turnos_libres = $st_tl->fetchAll();
+
+// Turno ya vinculado al remito (edición)
+$turno_actual = null;
+if ($edit_id > 0) {
+    $st_ta = $db->prepare("SELECT * FROM turnos WHERE remito_id=? AND empresa_id=?");
+    $st_ta->execute([$edit_id, $eid]);
+    $turno_actual = $st_ta->fetch() ?: null;
+}
+
 // ── Error / datos del POST previo ─────────────────────────────
 $form_error = $_SESSION['form_error'] ?? null;
 $form_post  = $_SESSION['form_post']  ?? null;
@@ -332,6 +352,62 @@ $nav_modulo = 'remitos';
                     <label class="form-label form-label-sm mb-1">Observaciones</label>
                     <textarea name="observaciones" class="form-control form-control-sm" rows="2"
                               placeholder="Notas adicionales sobre el remito..."><?= $form_post ? vp('observaciones') : h($remito['observaciones'] ?? '') ?></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── SECCIÓN: TURNO DE ENTREGA ──────────────────────── -->
+        <?php
+        // Construir lista combinada: turno_actual (si existe) + turnos_libres
+        $turnos_combo = $turnos_libres;
+        if ($turno_actual && !in_array($turno_actual['id'], array_column($turnos_libres,'id'))) {
+            array_unshift($turnos_combo, $turno_actual);
+        }
+        $sel_turno_id = $turno_actual['id'] ?? ($form_post['turno_id'] ?? 0);
+        ?>
+        <div class="seccion">
+            <div class="seccion-titulo"><i class="bi bi-calendar-check me-1"></i>Turno / Entrega programada</div>
+            <div class="row g-2 align-items-end">
+                <div class="col-sm-5 col-lg-4">
+                    <label class="form-label form-label-sm mb-1">Vincular a turno existente</label>
+                    <select name="turno_id" id="turno_id" class="form-select form-select-sm">
+                        <option value="0">— sin turno —</option>
+                        <option value="nuevo">+ Crear nuevo turno</option>
+                        <?php foreach ($turnos_combo as $tr):
+                            $etiqueta = date('d/m/Y', strtotime($tr['fecha']));
+                            if ($tr['hora_turno']) $etiqueta .= ' ' . substr($tr['hora_turno'],0,5);
+                            $etiqueta .= ' · ' . ($tr['tipo'] === 'turno' ? 'Turno' : 'Programado');
+                            if ($tr['cliente_nombre']) $etiqueta .= ' — ' . h($tr['cliente_nombre']);
+                        ?>
+                        <option value="<?= $tr['id'] ?>"
+                                data-cliente="<?= (int)($tr['cliente_id'] ?? 0) ?>"
+                                <?= $sel_turno_id == $tr['id'] ? 'selected' : '' ?>>
+                            <?= $etiqueta ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div id="turno_nuevo_campos" class="col-12" style="display:none">
+                    <div class="row g-2 mt-1">
+                        <div class="col-sm-3 col-lg-2">
+                            <label class="form-label form-label-sm mb-1">Fecha del turno</label>
+                            <input type="date" name="nuevo_turno_fecha" id="nuevo_turno_fecha"
+                                   class="form-control form-control-sm"
+                                   value="<?= h($form_post['nuevo_turno_fecha'] ?? '') ?>">
+                        </div>
+                        <div class="col-sm-3 col-lg-2">
+                            <label class="form-label form-label-sm mb-1">Hora (opcional)</label>
+                            <input type="time" name="nuevo_turno_hora" class="form-control form-control-sm"
+                                   value="<?= h($form_post['nuevo_turno_hora'] ?? '') ?>">
+                        </div>
+                        <div class="col-sm-3 col-lg-2">
+                            <label class="form-label form-label-sm mb-1">Tipo</label>
+                            <select name="nuevo_turno_tipo" class="form-select form-select-sm">
+                                <option value="turno" <?= ($form_post['nuevo_turno_tipo']??'turno')==='turno'?'selected':'' ?>>Turno (el cliente da la fecha)</option>
+                                <option value="programado" <?= ($form_post['nuevo_turno_tipo']??'')==='programado'?'selected':'' ?>>Programado (nosotros decidimos)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1037,6 +1113,54 @@ document.getElementById('btn_guardar_cliente').addEventListener('click', functio
             errDiv.classList.remove('d-none');
         });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// TURNO: mostrar/ocultar campos de nuevo turno
+// ═══════════════════════════════════════════════════════════════
+(function() {
+    const sel    = document.getElementById('turno_id');
+    const campos = document.getElementById('turno_nuevo_campos');
+    const fechaInput = document.getElementById('nuevo_turno_fecha');
+
+    function toggleCampos() {
+        const show = sel.value === 'nuevo';
+        campos.style.display = show ? '' : 'none';
+        if (show && !fechaInput.value) {
+            // Proponer la fecha del remito como default
+            const fr = document.getElementById('fecha_remito');
+            if (fr && fr.value) fechaInput.value = fr.value;
+        }
+    }
+
+    sel.addEventListener('change', toggleCampos);
+    toggleCampos(); // estado inicial si vuelve por error de validación
+
+    // Cuando cambia el cliente, resaltar/filtrar turnos del combo
+    const cliIdInput = document.getElementById('cliente_id');
+    function filtrarTurnos() {
+        const cid = parseInt(cliIdInput.value) || 0;
+        Array.from(sel.options).forEach(opt => {
+            const optCid = parseInt(opt.dataset.cliente) || 0;
+            // Siempre mostrar "sin turno" y "nuevo"
+            if (!opt.value || opt.value === 'nuevo' || opt.value === '0') return;
+            // Si el turno tiene cliente asignado y no coincide, deshabilitar (no ocultar)
+            if (cid > 0 && optCid > 0 && optCid !== cid) {
+                opt.disabled = true;
+                opt.style.color = '#aaa';
+            } else {
+                opt.disabled = false;
+                opt.style.color = '';
+            }
+        });
+    }
+
+    // Escuchar cambios en el campo cliente
+    cliIdInput.addEventListener('change', filtrarTurnos);
+    // También cuando el autocomplete selecciona un cliente
+    const observer = new MutationObserver(filtrarTurnos);
+    observer.observe(cliIdInput, { attributes: true, attributeFilter: ['value'] });
+    filtrarTurnos();
+})();
 </script>
 </body>
 </html>
