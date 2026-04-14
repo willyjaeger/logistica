@@ -43,11 +43,14 @@ $sql = "
            r.total_pallets, r.nro_oc, r.observaciones, r.fecha_entrega,
            c.nombre     AS cliente,
            p.nombre     AS proveedor,
-           i.fecha_ingreso, i.transportista, i.patente_camion_ext
+           i.fecha_ingreso, i.transportista, i.patente_camion_ext,
+           t.id         AS turno_id,
+           t.fecha      AS turno_fecha
     FROM remitos r
     JOIN clientes c ON r.cliente_id = c.id
     LEFT JOIN proveedores p ON r.proveedor_id = p.id
     JOIN ingresos i ON r.ingreso_id = i.id
+    LEFT JOIN turnos t ON t.remito_id = r.id AND t.empresa_id = r.empresa_id
     WHERE " . implode(' AND ', $where) . "
     ORDER BY i.fecha_ingreso DESC, r.id DESC
     LIMIT 100
@@ -142,9 +145,14 @@ $nav_modulo = 'remitos';
     <!-- Encabezado -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Remitos</h5>
-        <a href="<?= url('modules/remitos_form.php') ?>" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i>Nuevo remito
-        </a>
+        <div class="d-flex gap-2 align-items-center">
+            <a href="<?= url('modules/entregas_form.php') ?>" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-truck me-1"></i>Nueva salida
+            </a>
+            <a href="<?= url('modules/remitos_form.php') ?>" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i>Nuevo remito
+            </a>
+        </div>
     </div>
 
     <?php if (isset($_GET['ok'])): ?>
@@ -253,14 +261,22 @@ $nav_modulo = 'remitos';
                             <?php else: ?>—<?php endif; ?>
                         </td>
                         <td class="text-end pe-3">
-                            <?php if (in_array($r['estado'], ['pendiente','turnado','programado'])): ?>
-                            <?php
-                                // Sugerir fecha: fecha_entrega si tiene, si no hoy
-                                $f_agenda = $r['fecha_entrega'] ?? date('Y-m-d');
-                            ?>
-                            <a href="<?= url('modules/entrega_dia_form.php') ?>?remito_id=<?= $r['id'] ?>&fecha=<?= $f_agenda ?>"
-                               class="btn btn-sm btn-outline-warning" title="Asignar a entrega">
+                            <?php if ($r['turno_id']): ?>
+                            <a href="<?= url('modules/turno_form.php') ?>?id=<?= $r['turno_id'] ?>"
+                               class="btn btn-sm btn-outline-info" title="Ver/editar turno (<?= $r['turno_fecha'] ?>)">
+                                <i class="bi bi-calendar-check"></i>
+                            </a>
+                            <?php else: ?>
+                            <a href="<?= url('modules/turno_form.php') ?>?remito_id=<?= $r['id'] ?>"
+                               class="btn btn-sm btn-outline-secondary" title="Asignar turno">
                                 <i class="bi bi-calendar-plus"></i>
+                            </a>
+                            <?php endif; ?>
+                            <?php if (in_array($r['estado'], ['pendiente','turnado','programado'])): ?>
+                            <?php $f_agenda = $r['fecha_entrega'] ?? date('Y-m-d'); ?>
+                            <a href="<?= url('modules/entrega_dia_form.php') ?>?remito_id=<?= $r['id'] ?>&fecha=<?= $f_agenda ?>"
+                               class="btn btn-sm btn-outline-warning" title="Asignar a salida">
+                                <i class="bi bi-truck"></i>
                             </a>
                             <?php endif; ?>
                             <a href="<?= url("modules/remitos_form.php?id={$r['id']}") ?>"

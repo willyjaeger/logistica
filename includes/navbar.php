@@ -30,7 +30,7 @@ if (!isset($nav_modulo)) $nav_modulo = '';
 
                 <li class="nav-item">
                     <a class="nav-link<?= in_array($nav_modulo, ['entregas','transportistas']) ? ' active' : '' ?>" href="<?= url('modules/entregas_lista.php') ?>">
-                        <i class="bi bi-truck me-1"></i>Entregas
+                        <i class="bi bi-truck me-1"></i>Salidas
                     </a>
                 </li>
 

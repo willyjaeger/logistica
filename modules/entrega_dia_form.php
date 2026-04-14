@@ -42,48 +42,15 @@ if ($edit_id > 0) {
     $remitos_actuales = array_column($st2->fetchAll(), 'remito_id');
 }
 
-// ── Entregas pendientes del día (para "agregar a existente") ───
-// Solo cuando se está creando (no editando)
-$ents_existentes = [];
-if (!$edit_id) {
-    $se = $db->prepare("
-        SELECT e.id, e.fecha, tr.nombre AS transportista, cam.patente, ch.nombre AS chofer,
-               e.transportista_id, e.camion_id, e.chofer_id
-        FROM entregas e
-        LEFT JOIN transportistas tr  ON tr.id = e.transportista_id
-        LEFT JOIN camiones       cam ON cam.id= e.camion_id
-        LEFT JOIN choferes       ch  ON ch.id = e.chofer_id
-        WHERE e.empresa_id=? AND e.fecha=? AND e.estado NOT IN ('completada','entregado','con_incidencias')
-        ORDER BY e.id
-    ");
-    $se->execute([$eid, $def_fecha]);
-    $ents_existentes = $se->fetchAll();
-
-    // Remitos ya en cada entrega existente (para mostrar en la UI)
-    $ids_ex = array_column($ents_existentes, 'id');
-    $rems_de_ent = [];
-    if ($ids_ex) {
-        $ph = implode(',', array_fill(0, count($ids_ex), '?'));
-        $sr = $db->prepare("SELECT er.entrega_id, r.nro_remito_propio, c.nombre AS cliente
-                             FROM entrega_remitos er
-                             JOIN remitos r ON r.id=er.remito_id
-                             LEFT JOIN clientes c ON c.id=r.cliente_id
-                             WHERE er.entrega_id IN ($ph)");
-        $sr->execute($ids_ex);
-        foreach ($sr->fetchAll() as $row) $rems_de_ent[$row['entrega_id']][] = $row;
-    }
-    // Adjuntar remitos a cada entrega
-    foreach ($ents_existentes as &$e_ex) {
-        $e_ex['remitos'] = $rems_de_ent[$e_ex['id']] ?? [];
-    }
-    unset($e_ex);
-}
 
 // ── Remitos disponibles para agregar ──────────────────────────
 // Incluye:
-//   1. Remitos ya en esta entrega (siempre, para poder editarlos)
-//   2. Remitos con turno en la fecha, no asignados a otra entrega activa
-//   3. Remitos con fecha_entrega = la fecha, no asignados a otra entrega activa
+//   1. Remitos ya en esta entrega (edición)
+//   2. Remitos con turno en la fecha
+//   3. Remitos con fecha_entrega = la fecha (programados para ese día)
+//   4. Remitos en estado 'pendiente' (sin destino fijo aún)
+// En todos los casos: no asignados a otra entrega activa
+$eid_edit = $edit_id ?: 0;
 $disponibles = $db->prepare("
     SELECT DISTINCT
         r.id    AS remito_id,
@@ -93,56 +60,31 @@ $disponibles = $db->prepare("
         t.id    AS turno_id
     FROM remitos r
     LEFT JOIN clientes c ON c.id = r.cliente_id
-    LEFT JOIN turnos t   ON t.remito_id = r.id AND t.empresa_id = r.empresa_id
+    LEFT JOIN turnos t   ON t.remito_id = r.id AND t.empresa_id = r.empresa_id AND t.fecha = ?
     WHERE r.empresa_id = ?
       AND r.estado NOT IN ('entregado','en_stock','parcialmente_entregado')
-      AND (
-          -- Ya está en esta entrega
-          r.id IN (SELECT remito_id FROM entrega_remitos WHERE entrega_id = ?)
-          OR (
-              -- Tiene turno en la fecha y no está en otra entrega activa
-              t.id IS NOT NULL AND t.fecha = ?
-              AND NOT EXISTS (
-                  SELECT 1 FROM entrega_remitos er2
-                  JOIN entregas ex ON ex.id = er2.entrega_id
-                  WHERE er2.remito_id = r.id
-                    AND ex.empresa_id = ?
-                    AND ex.id != ?
-                    AND ex.estado NOT IN ('completada','entregado','con_incidencias')
-              )
-          )
-          OR (
-              -- Tiene fecha_entrega en la fecha y no está en otra entrega activa
-              DATE(r.fecha_entrega) = ?
-              AND NOT EXISTS (
-                  SELECT 1 FROM entrega_remitos er2
-                  JOIN entregas ex ON ex.id = er2.entrega_id
-                  WHERE er2.remito_id = r.id
-                    AND ex.empresa_id = ?
-                    AND ex.id != ?
-                    AND ex.estado NOT IN ('completada','entregado','con_incidencias')
-              )
-          )
+      AND NOT EXISTS (
+          SELECT 1 FROM entrega_remitos er2
+          JOIN entregas ex ON ex.id = er2.entrega_id
+          WHERE er2.remito_id = r.id
+            AND ex.empresa_id = ?
+            AND ex.id != ?
+            AND ex.estado NOT IN ('completada','entregado','con_incidencias')
       )
-    ORDER BY c.nombre, r.nro_remito_propio
+      AND (
+          r.id IN (SELECT remito_id FROM entrega_remitos WHERE entrega_id = ?)
+          OR t.id IS NOT NULL
+          OR DATE(r.fecha_entrega) = ?
+          OR r.estado = 'pendiente'
+      )
+    ORDER BY
+        CASE WHEN t.id IS NOT NULL THEN 0
+             WHEN DATE(r.fecha_entrega) = ? THEN 1
+             ELSE 2 END,
+        c.nombre, r.nro_remito_propio
 ");
-$eid_edit = $edit_id ?: 0;
-$disponibles->execute([$eid, $eid_edit, $def_fecha, $eid, $eid_edit, $def_fecha, $eid, $eid_edit]);
+$disponibles->execute([$def_fecha, $eid, $eid, $eid_edit, $eid_edit, $def_fecha, $def_fecha]);
 $remitos_disponibles = $disponibles->fetchAll();
-
-// También incluir remito pre-seleccionado aunque no tenga turno para esa fecha
-// (puede venir de remitos_lista donde la fecha aún no está definida)
-$remito_pre = null;
-if ($pre_remito && !in_array($pre_remito, array_column($remitos_disponibles, 'remito_id'))) {
-    $rp = $db->prepare("SELECT r.id AS remito_id, r.nro_remito_propio, r.total_pallets, c.nombre AS cliente
-                         FROM remitos r LEFT JOIN clientes c ON c.id=r.cliente_id
-                         WHERE r.id=? AND r.empresa_id=?");
-    $rp->execute([$pre_remito, $eid]);
-    $remito_pre = $rp->fetch();
-    if ($remito_pre) {
-        array_unshift($remitos_disponibles, $remito_pre);
-    }
-}
 
 // ── Datos para dropdowns ───────────────────────────────────────
 $trans_q = $db->prepare("SELECT id, nombre FROM transportistas WHERE empresa_id=? AND activo=1 ORDER BY nombre");
@@ -165,7 +107,7 @@ $sel_chofer = $entrega['chofer_id']        ?? '';
 $pre_checked = $remitos_actuales;
 if ($pre_remito && !in_array($pre_remito, $pre_checked)) $pre_checked[] = $pre_remito;
 
-$titulo     = $edit_id ? 'Editar entrega' : 'Nueva entrega';
+$titulo     = $edit_id ? 'Editar salida' : 'Nueva salida';
 $nav_modulo = 'agenda';
 
 function fmtDia(string $ymd): string {
@@ -186,21 +128,10 @@ function fmtDia(string $ymd): string {
         body { background:#eef1f6; }
         .seccion { background:#fff; border-left:4px solid #f97316; border-radius:.5rem;
                    padding:1rem 1.25rem; margin-bottom:1rem; box-shadow:0 2px 8px rgba(0,0,0,.08); }
-        .seccion.azul { border-left-color:#3b82f6; }
         .seccion-titulo { font-size:.78rem; font-weight:700; text-transform:uppercase;
                           letter-spacing:.08em; color:#f97316; margin-bottom:.75rem;
                           padding-bottom:.4rem; border-bottom:1px solid #e9ecef; }
-        .seccion.azul .seccion-titulo { color:#3b82f6; }
         .form-label { color:#374151; font-weight:600; }
-
-        /* Tarjeta entrega existente */
-        .ent-opcion { border:2px solid #e2e8f0; border-radius:.45rem; padding:.7rem 1rem;
-                      cursor:pointer; margin-bottom:.5rem; transition:border-color .15s,background .15s; }
-        .ent-opcion:hover { border-color:#3b82f6; background:#eff6ff; }
-        .ent-opcion.sel { border-color:#3b82f6; background:#eff6ff; }
-        .ent-opcion input[type=radio] { display:none; }
-        .ent-rem-chip { display:inline-block; background:#e0f2fe; color:#0369a1;
-                        border-radius:3px; padding:1px 7px; font-size:.75rem; margin:1px; }
 
         /* Remito checkbox */
         .rem-item { border:2px solid #e2e8f0; border-radius:.4rem; padding:.55rem .9rem;
@@ -234,94 +165,57 @@ function fmtDia(string $ymd): string {
         <!-- entrega_destino: 0 = nueva, N = agregar a entrega N -->
         <input type="hidden" name="entrega_destino" id="entrega_destino" value="<?= $edit_id ?: 0 ?>">
 
-        <?php if (!$edit_id && $ents_existentes): ?>
-        <!-- ══ SECCIÓN: ¿Nueva o agregar a existente? ══════════ -->
-        <div class="seccion azul">
-            <div class="seccion-titulo"><i class="bi bi-signpost-split me-1"></i>¿Nueva entrega o agregar a una existente?</div>
-
-            <?php foreach ($ents_existentes as $ex):
-                $info = array_filter([$ex['transportista'], $ex['patente'], $ex['chofer']]);
-                $label = implode(' · ', $info) ?: 'Sin transportista aún';
-            ?>
-            <div class="ent-opcion" id="opcion_ent_<?= $ex['id'] ?>" onclick="elegirEntrega(<?= $ex['id'] ?>)">
-                <input type="radio" name="_dest" value="<?= $ex['id'] ?>">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                        <strong><i class="bi bi-truck me-1 text-warning"></i><?= h($label) ?></strong>
-                        <div class="mt-1">
-                            <?php foreach ($ex['remitos'] as $rr): ?>
-                            <span class="ent-rem-chip"><?= h($rr['nro_remito_propio']) ?> — <?= h($rr['cliente']) ?></span>
-                            <?php endforeach; ?>
-                            <?php if (empty($ex['remitos'])): ?>
-                            <span class="text-muted small">Sin remitos aún</span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <span class="badge bg-light border text-muted" style="font-size:.72rem">E-<?= $ex['id'] ?></span>
-                </div>
-            </div>
-            <?php endforeach; ?>
-
-            <div class="ent-opcion sel" id="opcion_nueva" onclick="elegirEntrega(0)">
-                <input type="radio" name="_dest" value="0" checked>
-                <strong><i class="bi bi-plus-circle me-1 text-success"></i>Crear nueva entrega</strong>
-                <span class="text-muted small ms-2">para este día</span>
-            </div>
-        </div>
-        <?php endif; ?>
-
         <!-- ══ SECCIÓN: Transportista y vehículo ════════════════ -->
         <div class="seccion" id="sec-vehiculo">
             <div class="seccion-titulo"><i class="bi bi-building me-1"></i>Transportista y vehículo</div>
-
-            <?php if ($edit_id && $entrega): ?>
-            <!-- En edición, mostrar info actual antes de los dropdowns -->
-            <?php if ($entrega['trans_nombre']): ?>
-            <div class="alert alert-light py-2 small mb-2">
-                <i class="bi bi-truck-front me-1 text-warning"></i>
-                <strong><?= h($entrega['trans_nombre']) ?></strong>
-                <?php if ($entrega['patente']): ?> · <?= h($entrega['patente']) ?><?php endif; ?>
-                <?php if ($entrega['cho_nombre']): ?> / <?= h($entrega['cho_nombre']) ?><?php endif; ?>
-            </div>
-            <?php endif; ?>
-            <?php endif; ?>
-
             <div class="row g-3">
                 <div class="col-12 col-sm-6">
                     <label class="form-label form-label-sm mb-1">Empresa transportista</label>
-                    <select name="transportista_id" id="sel_trans" class="form-select form-select-sm"
-                            onchange="filtrar(this.value)">
-                        <option value="">— Sin asignar —</option>
-                        <?php foreach ($trans_list as $tr): ?>
-                        <option value="<?= $tr['id'] ?>" <?= $sel_trans == $tr['id'] ? 'selected' : '' ?>>
-                            <?= h($tr['nombre']) ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="input-group input-group-sm">
+                        <select name="transportista_id" id="sel_trans" class="form-select form-select-sm"
+                                onchange="filtrar(this.value)">
+                            <option value="">— Sin asignar —</option>
+                            <?php foreach ($trans_list as $tr): ?>
+                            <option value="<?= $tr['id'] ?>" <?= $sel_trans == $tr['id'] ? 'selected' : '' ?>>
+                                <?= h($tr['nombre']) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary" onclick="abrirModalTrans()"
+                                style="padding:.2rem .45rem;font-size:.8rem"><i class="bi bi-plus-lg"></i></button>
+                    </div>
                 </div>
                 <div class="col-6 col-sm-3">
                     <label class="form-label form-label-sm mb-1">Camión</label>
-                    <select name="camion_id" id="sel_camion" class="form-select form-select-sm">
-                        <option value="">— —</option>
-                        <?php foreach ($cam_list as $c): ?>
-                        <option value="<?= $c['id'] ?>" data-trans="<?= (int)$c['transportista_id'] ?>"
-                                <?= $sel_camion == $c['id'] ? 'selected' : '' ?>>
-                            <?= h($c['patente']) ?><?= $c['marca'] ? ' · '.h($c['marca']) : '' ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="input-group input-group-sm">
+                        <select name="camion_id" id="sel_camion" class="form-select form-select-sm">
+                            <option value="">— —</option>
+                            <?php foreach ($cam_list as $c): ?>
+                            <option value="<?= $c['id'] ?>" data-trans="<?= (int)$c['transportista_id'] ?>"
+                                    <?= $sel_camion == $c['id'] ? 'selected' : '' ?>>
+                                <?= h($c['patente']) ?><?= $c['marca'] ? ' · '.h($c['marca']) : '' ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary" onclick="abrirModalCamion()"
+                                style="padding:.2rem .45rem;font-size:.8rem"><i class="bi bi-plus-lg"></i></button>
+                    </div>
                 </div>
                 <div class="col-6 col-sm-3">
                     <label class="form-label form-label-sm mb-1">Chofer</label>
-                    <select name="chofer_id" id="sel_chofer" class="form-select form-select-sm">
-                        <option value="">— —</option>
-                        <?php foreach ($cho_list as $c): ?>
-                        <option value="<?= $c['id'] ?>" data-trans="<?= (int)$c['transportista_id'] ?>"
-                                <?= $sel_chofer == $c['id'] ? 'selected' : '' ?>>
-                            <?= h($c['nombre']) ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="input-group input-group-sm">
+                        <select name="chofer_id" id="sel_chofer" class="form-select form-select-sm">
+                            <option value="">— —</option>
+                            <?php foreach ($cho_list as $c): ?>
+                            <option value="<?= $c['id'] ?>" data-trans="<?= (int)$c['transportista_id'] ?>"
+                                    <?= $sel_chofer == $c['id'] ? 'selected' : '' ?>>
+                                <?= h($c['nombre']) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary" onclick="abrirModalChofer()"
+                                style="padding:.2rem .45rem;font-size:.8rem"><i class="bi bi-plus-lg"></i></button>
+                    </div>
                 </div>
                 <div class="col-12 col-sm-6">
                     <label class="form-label form-label-sm mb-1">Fecha</label>
@@ -370,23 +264,74 @@ function fmtDia(string $ymd): string {
     </form>
 </div>
 
+<!-- Modal nuevo transportista -->
+<div class="modal fade" id="modalTrans" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title fw-bold">Nuevo transportista</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-2"><label class="form-label form-label-sm fw-semibold">Nombre *</label>
+                <input type="text" id="mt_n" class="form-control form-control-sm"></div>
+            <div class="row g-2">
+                <div class="col"><label class="form-label form-label-sm fw-semibold">CUIT</label>
+                    <input type="text" id="mt_c" class="form-control form-control-sm font-monospace"></div>
+                <div class="col"><label class="form-label form-label-sm fw-semibold">Teléfono</label>
+                    <input type="text" id="mt_t" class="form-control form-control-sm"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="guardarTrans()"><i class="bi bi-floppy me-1"></i>Crear</button>
+        </div>
+    </div></div>
+</div>
+<!-- Modal nuevo camión -->
+<div class="modal fade" id="modalCam" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title fw-bold">Nuevo camión</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-2"><label class="form-label form-label-sm fw-semibold">Patente *</label>
+                <input type="text" id="mc_p" class="form-control form-control-sm font-monospace text-uppercase"></div>
+            <div class="row g-2">
+                <div class="col"><label class="form-label form-label-sm fw-semibold">Marca</label>
+                    <input type="text" id="mc_m" class="form-control form-control-sm"></div>
+                <div class="col"><label class="form-label form-label-sm fw-semibold">Modelo</label>
+                    <input type="text" id="mc_mo" class="form-control form-control-sm"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-success btn-sm" onclick="guardarCam()"><i class="bi bi-floppy me-1"></i>Crear</button>
+        </div>
+    </div></div>
+</div>
+<!-- Modal nuevo chofer -->
+<div class="modal fade" id="modalCho" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title fw-bold">Nuevo chofer</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div class="mb-2"><label class="form-label form-label-sm fw-semibold">Nombre *</label>
+                <input type="text" id="mch_n" class="form-control form-control-sm"></div>
+            <div class="mb-2"><label class="form-label form-label-sm fw-semibold">Teléfono</label>
+                <input type="text" id="mch_t" class="form-control form-control-sm"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-warning btn-sm" onclick="guardarCho()"><i class="bi bi-floppy me-1"></i>Crear</button>
+        </div>
+    </div></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+'use strict';
 const allCam = <?= json_encode($cam_list) ?>;
 const allCho = <?= json_encode($cho_list) ?>;
-
-// ── Elegir entrega destino (nueva o existente) ─────────────────
-function elegirEntrega(id) {
-    document.getElementById('entrega_destino').value = id;
-    document.querySelectorAll('.ent-opcion').forEach(el => el.classList.remove('sel'));
-    const target = id === 0
-        ? document.getElementById('opcion_nueva')
-        : document.getElementById('opcion_ent_' + id);
-    if (target) target.classList.add('sel');
-
-    // Mostrar/ocultar sección vehículo (solo para nueva entrega)
-    document.getElementById('sec-vehiculo').style.display = id === 0 ? '' : 'none';
-}
+const selTrans = document.getElementById('sel_trans');
+const selCam   = document.getElementById('sel_camion');
+const selCho   = document.getElementById('sel_chofer');
 
 // ── Filtrar camiones/choferes por transportista ────────────────
 function filtrar(tid) {
@@ -405,7 +350,6 @@ function filtrar(tid) {
 // ── Toggle remito checkbox ─────────────────────────────────────
 function toggleRem(label) {
     const chk = label.querySelector('input[type=checkbox]');
-    // El click del label ya cambia el checked; esperar un tick
     setTimeout(() => {
         const ico = label.querySelector('.rem-ico');
         if (chk.checked) {
@@ -418,9 +362,48 @@ function toggleRem(label) {
     }, 0);
 }
 
+// ── Modales ────────────────────────────────────────────────────
+async function post(url, data) {
+    data.ajax = '1';
+    return (await fetch(url, {method:'POST', body: new URLSearchParams(data)})).json();
+}
+const mTrans = new bootstrap.Modal(document.getElementById('modalTrans'));
+const mCam   = new bootstrap.Modal(document.getElementById('modalCam'));
+const mCho   = new bootstrap.Modal(document.getElementById('modalCho'));
+
+function abrirModalTrans()  { document.getElementById('mt_n').value=''; mTrans.show(); setTimeout(()=>document.getElementById('mt_n').focus(),300); }
+async function guardarTrans() {
+    const nombre = document.getElementById('mt_n').value.trim();
+    if (!nombre) return;
+    const res = await post('<?= url('modules/transportistas_guardar_ajax.php') ?>', {nombre, cuit: document.getElementById('mt_c').value.trim(), telefono: document.getElementById('mt_t').value.trim()});
+    if (!res.ok) { alert(res.error); return; }
+    selTrans.appendChild(new Option(res.nombre, res.id));
+    selTrans.value = res.id; mTrans.hide(); filtrar(res.id);
+}
+function abrirModalCamion() { document.getElementById('mc_p').value=''; mCam.show(); setTimeout(()=>document.getElementById('mc_p').focus(),300); }
+async function guardarCam() {
+    const patente = document.getElementById('mc_p').value.trim().toUpperCase();
+    if (!patente) return;
+    const tid = selTrans.value;
+    const res = await post('<?= url('modules/camiones_guardar.php') ?>', {accion:'guardar', transportista_id:tid, patente, marca: document.getElementById('mc_m').value.trim(), modelo: document.getElementById('mc_mo').value.trim()});
+    if (!res.ok) { alert(res.error); return; }
+    allCam.push({id:res.id, transportista_id:tid, patente:res.patente, marca: document.getElementById('mc_m').value.trim()});
+    mCam.hide(); filtrar(tid); selCam.value = res.id;
+}
+function abrirModalChofer() { document.getElementById('mch_n').value=''; mCho.show(); setTimeout(()=>document.getElementById('mch_n').focus(),300); }
+async function guardarCho() {
+    const nombre = document.getElementById('mch_n').value.trim();
+    if (!nombre) return;
+    const tid = selTrans.value;
+    const res = await post('<?= url('modules/choferes_guardar.php') ?>', {accion:'guardar', transportista_id:tid, nombre, telefono: document.getElementById('mch_t').value.trim()});
+    if (!res.ok) { alert(res.error); return; }
+    allCho.push({id:res.id, transportista_id:tid, nombre:res.nombre});
+    mCho.hide(); filtrar(tid); selCho.value = res.id;
+}
+
 // ── Inicialización ─────────────────────────────────────────────
 (function() {
-    const t = document.getElementById('sel_trans')?.value;
+    const t = selTrans?.value;
     if (t) filtrar(t);
 })();
 </script>

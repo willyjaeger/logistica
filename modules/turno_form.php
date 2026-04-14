@@ -5,8 +5,9 @@ require_login();
 $db  = db();
 $eid = empresa_id();
 
-$id    = (int)($_GET['id'] ?? 0);
-$turno = null;
+$id         = (int)($_GET['id']        ?? 0);
+$pre_remito = (int)($_GET['remito_id'] ?? 0);
+$turno      = null;
 
 if ($id > 0) {
     $st = $db->prepare("SELECT * FROM turnos WHERE id=? AND empresa_id=?");
@@ -45,11 +46,24 @@ $remitos_pend->execute([$eid]);
 $remitos_pend = $remitos_pend->fetchAll();
 
 // Si el turno ya tiene remito, incluirlo también (puede estar en otro estado)
+// También aplica cuando viene pre-seleccionado por ?remito_id=
 $remito_actual = null;
-if ($turno && $turno['remito_id']) {
-    $rst = $db->prepare("SELECT id, nro_remito_propio, total_pallets, cliente_id FROM remitos WHERE id=?");
-    $rst->execute([$turno['remito_id']]);
+$remito_ref_id = $turno['remito_id'] ?? $pre_remito;
+if ($remito_ref_id) {
+    $rst = $db->prepare("SELECT id, nro_remito_propio, total_pallets, cliente_id FROM remitos WHERE id=? AND empresa_id=?");
+    $rst->execute([$remito_ref_id, $eid]);
     $remito_actual = $rst->fetch();
+    // Asegurarse de que esté en la lista de disponibles
+    if ($remito_actual && !in_array($remito_actual['id'], array_column($remitos_pend, 'id'))) {
+        $remito_actual['nombre'] = ''; // campo extra no necesario
+        array_unshift($remitos_pend, [
+            'id'              => $remito_actual['id'],
+            'nro_remito_propio' => $remito_actual['nro_remito_propio'],
+            'total_pallets'   => $remito_actual['total_pallets'],
+            'cliente_id'      => $remito_actual['cliente_id'],
+            'cliente'         => '', // se mostrará via el select de clientes
+        ]);
+    }
 }
 
 $error = $_SESSION['form_error'] ?? null;
@@ -95,7 +109,7 @@ $nav_modulo = 'agenda';
     </div>
     <?php endif; ?>
 
-    <form method="POST" action="<?= url('modules/turno_guardar.php') ?>">
+    <form method="POST" action="<?= url('modules/turno_guardar.php') ?>" id="form-turno" novalidate>
         <?php if ($id): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
         <input type="hidden" name="accion" value="guardar">
 
@@ -138,12 +152,13 @@ $nav_modulo = 'agenda';
             <div class="seccion-titulo"><i class="bi bi-person me-1"></i>Cliente y remito</div>
             <div class="row g-3">
                 <div class="col-sm-5">
-                    <label class="form-label form-label-sm mb-1">Cliente <span class="text-muted">(opc)</span></label>
+                    <label class="form-label form-label-sm mb-1">Cliente <span class="text-danger">*</span></label>
                     <select name="cliente_id" id="sel-cliente" class="form-select form-select-sm"
-                            onchange="filtrarRemitos()">
-                        <option value="">— Sin cliente definido aún —</option>
+                            onchange="filtrarRemitos()" required>
+                        <option value="">— Seleccionar cliente —</option>
                         <?php foreach ($clientes as $c): ?>
-                        <option value="<?= $c['id'] ?>" <?= ($turno['cliente_id']??'')==$c['id']?'selected':'' ?>>
+                        <?php $sel_cliente = $turno['cliente_id'] ?? $remito_actual['cliente_id'] ?? ''; ?>
+                        <option value="<?= $c['id'] ?>" <?= $sel_cliente==$c['id']?'selected':'' ?>>
                             <?= h($c['nombre']) ?>
                         </option>
                         <?php endforeach; ?>
@@ -151,7 +166,8 @@ $nav_modulo = 'agenda';
                 </div>
                 <div class="col-sm-5">
                     <label class="form-label form-label-sm mb-1">Vincular remito <span class="text-muted">(opc)</span></label>
-                    <select name="remito_id" id="sel-remito" class="form-select form-select-sm">
+                    <select name="remito_id" id="sel-remito" class="form-select form-select-sm"
+                            onchange="autocompletarCliente(this.value)">
                         <option value="">— Sin remito todavía —</option>
                         <?php
                         // Mostrar remito actual (puede no estar en pendientes)
@@ -162,9 +178,10 @@ $nav_modulo = 'agenda';
                         </option>
                         <?php endif; ?>
                         <?php foreach ($remitos_pend as $r): ?>
+                        <?php $sel_remito = $turno['remito_id'] ?? $remito_ref_id ?? 0; ?>
                         <option value="<?= $r['id'] ?>"
                                 data-cliente="<?= $r['cliente_id'] ?>"
-                                <?= ($turno['remito_id']??'')==$r['id']?'selected':'' ?>>
+                                <?= $sel_remito==$r['id']?'selected':'' ?>>
                             <?= h($r['nro_remito_propio']) ?> — <?= h($r['cliente']) ?>
                             <?= $r['total_pallets']>0 ? '('.number_format($r['total_pallets'],1).' pal)' : '' ?>
                         </option>
@@ -338,6 +355,40 @@ function filtrarRemitos() {
                   .map(r => `<option value="${r.id}" ${curVal==r.id?'selected':''}>${r.nro_remito_propio} — ${r.cliente}${r.total_pallets>0?' ('+parseFloat(r.total_pallets).toFixed(1)+' pal)':''}</option>`)
                   .join('');
 }
+
+function autocompletarCliente(remitoId) {
+    if (!remitoId) return;
+    const remito = allRemitos.find(r => String(r.id) === String(remitoId));
+    if (!remito) return;
+    const selC = document.getElementById('sel-cliente');
+    if (!selC.value) {
+        selC.value = remito.cliente_id;
+        filtrarRemitos();
+        document.getElementById('sel-remito').value = remitoId;
+    }
+    if (remito.total_pallets > 0) {
+        document.querySelector('[name="pallets_est"]').value = parseFloat(remito.total_pallets).toFixed(1);
+    }
+}
+
+document.getElementById('form-turno').addEventListener('submit', function(e) {
+    const fecha   = this.elements['fecha'].value.trim();
+    const cliente = this.elements['cliente_id'].value;
+    const errores = [];
+    if (!fecha)   errores.push('Fecha es obligatoria.');
+    if (!cliente) errores.push('Cliente es obligatorio.');
+    if (errores.length) {
+        e.preventDefault();
+        const existing = this.querySelector('.alert-validacion');
+        if (existing) existing.remove();
+        const div = document.createElement('div');
+        div.className = 'alert alert-danger py-2 alert-validacion';
+        div.innerHTML = '<i class="bi bi-exclamation-circle me-2"></i>' + errores.join(' ');
+        this.insertBefore(div, this.firstChild);
+        if (!fecha)        this.elements['fecha'].focus();
+        else if (!cliente) document.getElementById('sel-cliente').focus();
+    }
+});
 
 async function post(url, data) {
     data.ajax='1';

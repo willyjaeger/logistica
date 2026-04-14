@@ -113,7 +113,7 @@ $nav_modulo = 'entregas';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Entregas — <?= APP_NAME ?></title>
+    <title>Salidas — <?= APP_NAME ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -150,7 +150,7 @@ $nav_modulo = 'entregas';
             <a href="<?= url('modules/agenda.php') ?>" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>Volver
             </a>
-            <h5 class="fw-bold mb-0"><i class="bi bi-truck me-2 text-success"></i>Entregas</h5>
+            <h5 class="fw-bold mb-0"><i class="bi bi-truck me-2 text-success"></i>Salidas</h5>
         </div>
         <div class="d-flex gap-2 no-print">
             <?php if ($prov_fil): ?>
@@ -163,7 +163,7 @@ $nav_modulo = 'entregas';
                 <i class="bi bi-file-earmark-excel me-1"></i>Excel
             </a>
             <a href="<?= url('modules/entregas_form.php') ?>" class="btn btn-success">
-                <i class="bi bi-plus-lg me-1"></i>Nueva entrega
+                <i class="bi bi-plus-lg me-1"></i>Nueva salida
             </a>
         </div>
     </div>

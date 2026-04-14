@@ -481,9 +481,6 @@ $nav_modulo = 'agenda';
         <?php endif; ?>
 
         <?php if ($fecha >= $hoy): ?>
-        <a href="<?= url('modules/entrega_dia_form.php') ?>?fecha=<?= $fecha ?>" class="btn-dia btn-dia-ent">
-            <i class="bi bi-plus-lg me-1"></i>Nueva entrega
-        </a>
         <a href="<?= url('modules/turno_form.php') ?>?fecha=<?= $fecha ?>" class="btn-dia btn-dia-tur">
             <i class="bi bi-plus-lg me-1"></i>Nuevo turno
         </a>
