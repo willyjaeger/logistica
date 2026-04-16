@@ -47,6 +47,8 @@ Procedural PHP con SQL embebido y HTML inline. Sin MVC. Una responsabilidad por 
 `config/auth.php` define los helpers globales que todo módulo usa:
 - `require_login()` — redirige a login si no hay sesión
 - `empresa_id()` — devuelve `$_SESSION['empresa_id']` (aislamiento multiempresa)
+- `usuario_nombre()` — devuelve `$_SESSION['usuario_nombre']`
+- `empresa_nombre()` — devuelve `$_SESSION['empresa_nombre']`
 - `es_admin()` — verifica `usuario_rol === 'admin'`
 - `h($str)` — escapa HTML con `htmlspecialchars` (usar en todo output)
 - `url($path)` — genera URL absoluta usando la constante `BASE_URL`
@@ -74,12 +76,14 @@ Siempre usar prepared statements con `prepare()` + `execute([$param])`. Nunca co
 | Módulo | Archivos | Descripción |
 |--------|----------|-------------|
 | Panel | `index.php` | Dashboard con stats y lista filtrable de remitos |
-| Remitos | `modules/remitos_*.php` | Albaranes de entrada; el ingreso padre se crea inline en el form |
+| Remitos | `modules/remitos_*.php` | Albaranes de entrada; el ingreso padre se crea inline en el form. `remitos_guardar_cliente.php` guarda un cliente nuevo inline desde el formulario |
 | Entregas (Salidas) | `modules/entregas_*.php`, `entrega_dia_*.php`, `entrega_asignar.php`, `entrega_confirmar.php` | Viajes de entrega; `entrega_dia_form.php` arma la salida del día |
 | Turnos | `modules/turno_*.php` | Turnos agendados de entrega asignados a un remito |
 | Agenda | `modules/agenda.php` | Vista semanal/mensual de entregas; vistas `dia`/`semana`/`mes` |
 | Transportistas | `modules/transportistas_*.php`, `camiones_guardar.php`, `choferes_guardar.php` | Empresas transportistas con sus camiones y choferes inline |
-| Config (admin) | `modules/configuracion/` | Clientes, proveedores, usuarios (solo `es_admin()`) |
+| Config (admin) | `modules/configuracion/` | Clientes, Proveedores, Choferes, Camiones, Usuarios — solo `es_admin()`. **Directorio vacío (pendiente de implementación)** |
+| Stock | `modules/stock/` | Ítems en depósito (estado `en_stock`). **Directorio vacío (pendiente)** |
+| Reportes | `modules/reportes/` | Reporte de camiones. **Directorio vacío (pendiente)** |
 
 ### AJAX Endpoints
 - `modules/remitos_ac_clientes.php` — autocomplete de clientes (JSON)
@@ -128,7 +132,10 @@ unset($_SESSION['form_post']);
 - **Bootstrap 5.3.3** (CDN) + **Bootstrap Icons 1.11.3** (CDN)
 - CSS personalizado mínimo en `assets/css/app.css`
 - `includes/navbar.php`: incluye el JS de "Enter avanza campo" y "select-all on focus" (no hace falta `assets/js/forms.js` por separado — está embebido en la navbar)
-- Variable `$nav_modulo` en cada página para marcar activo en `includes/navbar.php`
+- Variable `$nav_modulo` en cada página para marcar activo en `includes/navbar.php`. Valores válidos: `'panel'`, `'ingresos'`, `'remitos'`, `'entregas'`, `'transportistas'`, `'agenda'`, `'stock'`, `'reportes'`, `'config'`
+
+### Formato de número de remito
+`nro_remito_propio` sigue el formato `R-{punto_venta}-{numero}` (ej. `R-00001-00000001`). El form lo parsea con `explode('-', ...)` para separar punto de venta y número en campos independientes.
 
 ### Seguridad
 - `.htaccess` bloquea listado de directorios y acceso directo a `config/`

@@ -826,10 +826,10 @@ function initRowAC(row) {
             });
     });
 
-    // Bug 3: al hacer foco en descripción, mostrar dropdown con valor actual
+    // Al hacer foco en descripción, abrir dropdown (incluso vacío) si no hay artículo seleccionado
     descInput.addEventListener('focus', function() {
+        if (artId.value) return;
         const q = this.value.trim();
-        if (!q) return;
         fetch(AC_URL + '?q=' + encodeURIComponent(q))
             .then(r => r.json())
             .then(data => {
