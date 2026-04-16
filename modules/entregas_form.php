@@ -589,6 +589,15 @@ function filtrar() {
 
 document.getElementById('filtro-buscar').addEventListener('input', filtrar);
 document.getElementById('filtro-prov').addEventListener('change', filtrar);
+
+// ──── Prevenir doble envío ─────────────────────────────────────────────────
+document.getElementById('form-entrega').addEventListener('submit', function() {
+    document.querySelectorAll('[form="form-entrega"][type="submit"], #form-entrega [type="submit"]')
+        .forEach(btn => {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando…';
+        });
+});
 </script>
 </body>
 </html>
