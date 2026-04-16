@@ -18,8 +18,10 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          security: loose
           local-dir: ./
-          server-dir: /public_html/ops/   # <-- ajustá esta ruta a donde está tu app en DonWeb
+          server-dir: /public_html/ops/
           exclude: |
             **/.git*
             **/.git*/**
