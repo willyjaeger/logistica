@@ -5,7 +5,13 @@ require_login();
 $eid = empresa_id();
 $db  = db();
 
-// Remitos ingresados hoy
+// ── Auto-transición: en_camino de ayer → entregado ────────────
+$db->prepare("
+    UPDATE remitos SET estado='entregado'
+    WHERE empresa_id=? AND estado='en_camino' AND fecha_entrega < ?
+")->execute([$eid, date('Y-m-d')]);
+
+// ── Stats ─────────────────────────────────────────────────────
 $stmt = $db->prepare("
     SELECT COUNT(*) FROM remitos r
     JOIN ingresos i ON r.ingreso_id = i.id
@@ -14,22 +20,18 @@ $stmt = $db->prepare("
 $stmt->execute([$eid]);
 $remitos_hoy = (int) $stmt->fetchColumn();
 
-// Remitos pendientes
 $stmt = $db->prepare("SELECT COUNT(*) FROM remitos WHERE empresa_id = ? AND estado IN ('pendiente','parcialmente_entregado')");
 $stmt->execute([$eid]);
 $remitos_pendientes = (int) $stmt->fetchColumn();
 
-// Entregas en camino
 $stmt = $db->prepare("SELECT COUNT(*) FROM entregas WHERE empresa_id = ? AND estado = 'en_camino'");
 $stmt->execute([$eid]);
 $entregas_en_camino = (int) $stmt->fetchColumn();
 
-// Ítems en stock
 $stmt = $db->prepare("SELECT COUNT(*) FROM stock WHERE empresa_id = ? AND estado = 'disponible'");
 $stmt->execute([$eid]);
 $items_stock = (int) $stmt->fetchColumn();
 
-// Entregas completadas este mes
 $stmt = $db->prepare("
     SELECT COUNT(*) FROM entregas
     WHERE empresa_id = ? AND estado = 'completada'
@@ -39,26 +41,79 @@ $stmt = $db->prepare("
 $stmt->execute([$eid]);
 $entregas_mes = (int) $stmt->fetchColumn();
 
-// Últimos 8 remitos
-$stmt = $db->prepare("
-    SELECT r.id, r.nro_remito_propio, r.estado, r.total_pallets,
-           c.nombre AS cliente,
-           i.fecha_ingreso
+// ── Filtros ───────────────────────────────────────────────────
+$q      = trim($_GET['q']      ?? '');
+$estado = $_GET['estado']      ?? '';
+$desde  = $_GET['desde']       ?? '';
+$hasta  = $_GET['hasta']       ?? '';
+
+// ── Construir query de remitos ────────────────────────────────
+$where  = ['r.empresa_id = ?'];
+$params = [$eid];
+
+if ($q !== '') {
+    $where[]  = '(r.nro_remito_propio LIKE ? OR c.nombre LIKE ? OR r.nro_oc LIKE ?)';
+    $params[] = "%$q%"; $params[] = "%$q%"; $params[] = "%$q%";
+}
+if ($estado !== '') {
+    $where[]  = 'r.estado = ?';
+    $params[] = $estado;
+}
+if ($desde !== '') {
+    $where[]  = 'DATE(i.fecha_ingreso) >= ?';
+    $params[] = $desde;
+}
+if ($hasta !== '') {
+    $where[]  = 'DATE(i.fecha_ingreso) <= ?';
+    $params[] = $hasta;
+}
+
+$sql = "
+    SELECT r.id, r.nro_remito_propio, r.fecha_remito, r.estado,
+           r.total_pallets, r.nro_oc, r.observaciones, r.fecha_entrega,
+           c.nombre     AS cliente,
+           p.nombre     AS proveedor,
+           i.fecha_ingreso, i.transportista, i.patente_camion_ext,
+           t.id         AS turno_id,
+           t.fecha      AS turno_fecha
     FROM remitos r
     JOIN clientes c ON r.cliente_id = c.id
+    LEFT JOIN proveedores p ON r.proveedor_id = p.id
     JOIN ingresos i ON r.ingreso_id = i.id
-    WHERE r.empresa_id = ?
+    LEFT JOIN turnos t ON t.remito_id = r.id AND t.empresa_id = r.empresa_id
+    WHERE " . implode(' AND ', $where) . "
     ORDER BY i.fecha_ingreso DESC, r.id DESC
-    LIMIT 8
-");
-$stmt->execute([$eid]);
-$ultimos_remitos = $stmt->fetchAll();
+    LIMIT 100
+";
+$stmt = $db->prepare($sql);
+$stmt->execute($params);
+$remitos = $stmt->fetchAll();
+
+// ── Ítems de los remitos visibles ─────────────────────────────
+$items_map = [];
+if ($remitos) {
+    $ids = implode(',', array_column($remitos, 'id'));
+    $ri  = $db->query("
+        SELECT ri.remito_id, ri.descripcion, ri.cantidad, ri.pallets, ri.estado,
+               a.codigo, a.presentacion
+        FROM remito_items ri
+        LEFT JOIN articulos a ON ri.articulo_id = a.id
+        WHERE ri.remito_id IN ($ids)
+        ORDER BY ri.id
+    ");
+    foreach ($ri->fetchAll() as $row) {
+        $items_map[$row['remito_id']][] = $row;
+    }
+}
 
 $estado_label = [
-    'pendiente'             => ['bg-warning text-dark', 'Pendiente'],
-    'parcialmente_entregado'=> ['bg-info text-dark',    'Parcial'],
-    'entregado'             => ['bg-success',            'Entregado'],
-    'en_stock'              => ['bg-secondary',          'En stock'],
+    'pendiente'              => ['bg-warning text-dark', 'Pendiente'],
+    'parcialmente_entregado' => ['bg-info text-dark',    'Parcial'],
+    'entregado'              => ['bg-success',           'Entregado'],
+    'en_stock'               => ['bg-secondary',         'En stock'],
+    'turnado'                => ['bg-primary',           'Turnado'],
+    'programado'             => ['bg-info',              'Programado'],
+    'en_camino'              => ['bg-warning text-dark', 'En camino'],
 ];
 
 $nav_modulo = 'panel';
@@ -72,6 +127,38 @@ $nav_modulo = 'panel';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/app.css">
+    <style>
+        body { background: #eef1f6; }
+
+        #tabla-remitos thead th {
+            background: #2c3e50;
+            color: #fff;
+            font-size: .78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            border: none;
+        }
+        #tabla-remitos tbody tr.remito-row {
+            border-bottom: 1px solid #dde3ec;
+        }
+        #tabla-remitos tbody tr.remito-row:hover {
+            background: #dde8f7;
+        }
+        #tabla-remitos td { color: #212529; }
+        .font-monospace { color: #1a1a2e; font-weight: 700; }
+
+        .row-items { background: #f0f4fb; }
+        .row-items td { padding: .6rem 1rem .6rem 3.5rem; border-top: none; }
+        .row-items table { font-size: .85rem; }
+        .row-items thead th { background: #d5dff0; color: #374151; font-size: .75rem; text-transform: uppercase; }
+
+        .btn-expand { width: 28px; height: 28px; padding: 0; }
+        .btn-expand .bi { transition: transform .2s; }
+        .btn-expand.open .bi { transform: rotate(90deg); }
+
+        .card { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,.10) !important; }
+    </style>
 </head>
 <body>
 
@@ -93,7 +180,7 @@ $nav_modulo = 'panel';
     <div class="row g-3 mb-4">
 
         <div class="col-6 col-md-4 col-xl-2">
-            <div class="card border-0 shadow-sm h-100 stat-card stat-azul">
+            <div class="card h-100 stat-card stat-azul">
                 <div class="card-body">
                     <div class="stat-icon"><i class="bi bi-file-earmark-plus"></i></div>
                     <div class="stat-numero"><?= $remitos_hoy ?></div>
@@ -103,8 +190,8 @@ $nav_modulo = 'panel';
         </div>
 
         <div class="col-6 col-md-4 col-xl-2">
-            <a href="<?= url('modules/remitos_lista.php') ?>?estado=pendiente" class="text-decoration-none">
-            <div class="card border-0 shadow-sm h-100 stat-card stat-naranja">
+            <a href="?estado=pendiente" class="text-decoration-none">
+            <div class="card h-100 stat-card stat-naranja">
                 <div class="card-body">
                     <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
                     <div class="stat-numero"><?= $remitos_pendientes ?></div>
@@ -115,7 +202,7 @@ $nav_modulo = 'panel';
         </div>
 
         <div class="col-6 col-md-4 col-xl-2">
-            <div class="card border-0 shadow-sm h-100 stat-card stat-verde">
+            <div class="card h-100 stat-card stat-verde">
                 <div class="card-body">
                     <div class="stat-icon"><i class="bi bi-truck"></i></div>
                     <div class="stat-numero"><?= $entregas_en_camino ?></div>
@@ -125,7 +212,7 @@ $nav_modulo = 'panel';
         </div>
 
         <div class="col-6 col-md-4 col-xl-2">
-            <div class="card border-0 shadow-sm h-100 stat-card stat-rojo">
+            <div class="card h-100 stat-card stat-rojo">
                 <div class="card-body">
                     <div class="stat-icon"><i class="bi bi-archive"></i></div>
                     <div class="stat-numero"><?= $items_stock ?></div>
@@ -135,7 +222,7 @@ $nav_modulo = 'panel';
         </div>
 
         <div class="col-6 col-md-4 col-xl-2">
-            <div class="card border-0 shadow-sm h-100 stat-card stat-violeta">
+            <div class="card h-100 stat-card stat-violeta">
                 <div class="card-body">
                     <div class="stat-icon"><i class="bi bi-check2-circle"></i></div>
                     <div class="stat-numero"><?= $entregas_mes ?></div>
@@ -146,7 +233,7 @@ $nav_modulo = 'panel';
 
         <div class="col-6 col-md-4 col-xl-2">
             <a href="<?= url('modules/reportes/camiones.php') ?>" class="text-decoration-none">
-            <div class="card border-0 shadow-sm h-100 stat-card stat-gris">
+            <div class="card h-100 stat-card stat-gris">
                 <div class="card-body">
                     <div class="stat-icon"><i class="bi bi-bar-chart-line"></i></div>
                     <div class="stat-numero"><i class="bi bi-arrow-right-circle fs-4"></i></div>
@@ -158,94 +245,191 @@ $nav_modulo = 'panel';
 
     </div>
 
-    <!-- Acciones + últimos remitos -->
-    <div class="row g-3">
-
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-semibold border-0 pb-0">
-                    <i class="bi bi-lightning-charge-fill text-warning me-2"></i>Acciones rápidas
-                </div>
-                <div class="card-body d-grid gap-2">
-                    <a href="<?= url('modules/remitos_form.php') ?>" class="btn btn-outline-primary text-start">
-                        <i class="bi bi-plus-circle me-2"></i>Nuevo remito
-                    </a>
-                    <a href="<?= url('modules/remitos_lista.php') ?>?estado=pendiente" class="btn btn-outline-warning text-start">
-                        <i class="bi bi-hourglass-split me-2"></i>Remitos pendientes
-                    </a>
-                    <a href="<?= url('modules/entregas/nueva.php') ?>" class="btn btn-outline-success text-start">
-                        <i class="bi bi-truck me-2"></i>Armar entrega
-                    </a>
-                    <a href="<?= url('modules/stock/lista.php') ?>" class="btn btn-outline-danger text-start">
-                        <i class="bi bi-archive me-2"></i>Consultar stock
-                    </a>
-                    <a href="<?= url('modules/reportes/camiones.php') ?>" class="btn btn-outline-secondary text-start">
-                        <i class="bi bi-bar-chart me-2"></i>Reportes
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-9">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-semibold border-0 pb-0 d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-clock-history text-primary me-2"></i>Últimos remitos</span>
-                    <a href="<?= url('modules/remitos_lista.php') ?>" class="btn btn-sm btn-outline-primary">Ver todos</a>
-                </div>
-                <div class="card-body p-0">
-                    <?php if (empty($ultimos_remitos)): ?>
-                    <div class="text-center text-muted py-5">
-                        <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                        No hay remitos ingresados todavía.
-                    </div>
-                    <?php else: ?>
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0 align-middle">
-                            <thead class="table-light small text-muted">
-                                <tr>
-                                    <th>Fecha ingreso</th>
-                                    <th>Nro remito</th>
-                                    <th>Cliente</th>
-                                    <th class="text-center">Pallets</th>
-                                    <th>Estado</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($ultimos_remitos as $r):
-                                [$cls, $lbl] = $estado_label[$r['estado']] ?? ['bg-secondary', $r['estado']];
-                                $fi = substr($r['fecha_ingreso'], 0, 10);
-                                [$y,$m,$d] = explode('-', $fi);
-                            ?>
-                            <tr>
-                                <td class="small text-muted"><?= "$d/$m/$y" ?></td>
-                                <td class="fw-semibold font-monospace"><?= h($r['nro_remito_propio']) ?></td>
-                                <td><?= h($r['cliente']) ?></td>
-                                <td class="text-center">
-                                    <?php if ($r['total_pallets'] > 0): ?>
-                                    <span class="badge bg-primary rounded-pill"><?= number_format($r['total_pallets'], 1) ?></span>
-                                    <?php else: ?>—<?php endif; ?>
-                                </td>
-                                <td><span class="badge <?= $cls ?>"><?= $lbl ?></span></td>
-                                <td>
-                                    <a href="<?= url("modules/remitos_form.php?id={$r['id']}") ?>"
-                                       class="btn btn-sm btn-outline-secondary">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-
+    <!-- Remitos -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Remitos</h5>
+        <a href="<?= url('modules/entregas_form.php') ?>" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-truck me-1"></i>Nueva salida
+        </a>
     </div>
+
+    <!-- Filtros -->
+    <form method="GET" class="row g-2 mb-3 align-items-end">
+        <div class="col-sm-4 col-lg-3">
+            <input type="text" name="q" class="form-control form-control-sm"
+                   placeholder="Buscar nro remito / cliente / OC..."
+                   value="<?= h($q) ?>">
+        </div>
+        <div class="col-sm-3 col-lg-2">
+            <select name="estado" class="form-select form-select-sm">
+                <option value="">Todos los estados</option>
+                <?php foreach ($estado_label as $val => [$cls, $lbl]): ?>
+                <option value="<?= $val ?>" <?= $estado === $val ? 'selected' : '' ?>><?= $lbl ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="col-sm-2 col-lg-2">
+            <input type="date" name="desde" class="form-control form-control-sm" value="<?= h($desde) ?>">
+        </div>
+        <div class="col-sm-2 col-lg-2">
+            <input type="date" name="hasta" class="form-control form-control-sm" value="<?= h($hasta) ?>">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-search me-1"></i>Filtrar
+            </button>
+            <?php if ($q || $estado || $desde || $hasta): ?>
+            <a href="<?= url('index.php') ?>" class="btn btn-sm btn-link text-muted">Limpiar</a>
+            <?php endif; ?>
+        </div>
+    </form>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-body p-0">
+            <?php if (empty($remitos)): ?>
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+                <?= $q || $estado ? 'Sin resultados para ese filtro.' : 'No hay remitos ingresados todavía.' ?>
+            </div>
+            <?php else: ?>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="tabla-remitos">
+                    <thead>
+                        <tr>
+                            <th style="width:28px"></th>
+                            <th>Fecha ingreso</th>
+                            <th>Nro remito</th>
+                            <th>Cliente</th>
+                            <th>Proveedor</th>
+                            <th class="text-center">Pallets</th>
+                            <th>Estado</th>
+                            <th>Fecha entrega</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($remitos as $r):
+                        $items = $items_map[$r['id']] ?? [];
+                        [$cls, $lbl] = $estado_label[$r['estado']] ?? ['bg-secondary', $r['estado']];
+                        $fecha_i = substr($r['fecha_ingreso'], 0, 10);
+                        [$y,$m,$d] = explode('-', $fecha_i);
+                        $fecha_fmt = "$d/$m/$y";
+                    ?>
+                    <tr class="remito-row">
+                        <td class="ps-2">
+                            <?php if ($items): ?>
+                            <button type="button"
+                                    class="btn btn-expand btn-sm btn-outline-secondary rounded-circle"
+                                    onclick="toggleItems(this, <?= $r['id'] ?>)">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                            <?php endif; ?>
+                        </td>
+                        <td class="small"><?= $fecha_fmt ?></td>
+                        <td class="fw-semibold font-monospace"><?= h($r['nro_remito_propio']) ?></td>
+                        <td><?= h($r['cliente']) ?></td>
+                        <td class="small text-muted"><?= h($r['proveedor'] ?? '—') ?></td>
+                        <td class="text-center">
+                            <?php if ($r['total_pallets'] > 0): ?>
+                            <span class="badge bg-primary rounded-pill"><?= number_format($r['total_pallets'], 1) ?></span>
+                            <?php else: ?>
+                            <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td><span class="badge <?= $cls ?>"><?= $lbl ?></span></td>
+                        <td class="small text-muted">
+                            <?php if ($r['fecha_entrega']): ?>
+                                <?php [$ye,$me,$de] = explode('-', $r['fecha_entrega']); echo "$de/$me/$ye"; ?>
+                            <?php else: ?>—<?php endif; ?>
+                        </td>
+                        <td class="text-end pe-3">
+                            <?php if ($r['turno_id']): ?>
+                            <a href="<?= url('modules/turno_form.php') ?>?id=<?= $r['turno_id'] ?>"
+                               class="btn btn-sm btn-outline-info" title="Ver/editar turno (<?= $r['turno_fecha'] ?>)">
+                                <i class="bi bi-calendar-check"></i>
+                            </a>
+                            <?php else: ?>
+                            <a href="<?= url('modules/turno_form.php') ?>?remito_id=<?= $r['id'] ?>"
+                               class="btn btn-sm btn-outline-secondary" title="Asignar turno">
+                                <i class="bi bi-calendar-plus"></i>
+                            </a>
+                            <?php endif; ?>
+                            <?php if (in_array($r['estado'], ['pendiente','turnado','programado'])): ?>
+                            <?php $f_agenda = $r['fecha_entrega'] ?? date('Y-m-d'); ?>
+                            <a href="<?= url('modules/entrega_dia_form.php') ?>?remito_id=<?= $r['id'] ?>&fecha=<?= $f_agenda ?>"
+                               class="btn btn-sm btn-outline-warning" title="Asignar a salida">
+                                <i class="bi bi-truck"></i>
+                            </a>
+                            <?php endif; ?>
+                            <a href="<?= url("modules/remitos_form.php?id={$r['id']}") ?>"
+                               class="btn btn-sm btn-outline-primary" title="Editar">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form method="POST" action="<?= url('modules/remitos_eliminar.php') ?>"
+                                  class="d-inline"
+                                  onsubmit="return confirm('¿Eliminar el remito <?= h($r['nro_remito_propio']) ?>?')">
+                                <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    <?php if ($items): ?>
+                    <tr id="items-<?= $r['id'] ?>" class="row-items d-none">
+                        <td colspan="9">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr class="text-muted">
+                                        <th>Código</th>
+                                        <th>Descripción</th>
+                                        <th>Presentación</th>
+                                        <th class="text-end">Cantidad</th>
+                                        <th class="text-end">Pallets</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($items as $it):
+                                    [$ic, $il] = $estado_label[$it['estado']] ?? ['bg-secondary', $it['estado']];
+                                ?>
+                                <tr>
+                                    <td class="font-monospace text-muted"><?= h($it['codigo'] ?? '') ?></td>
+                                    <td><?= h($it['descripcion']) ?></td>
+                                    <td class="text-muted"><?= h($it['presentacion'] ?? '') ?></td>
+                                    <td class="text-end"><?= number_format($it['cantidad'], 0) ?></td>
+                                    <td class="text-end"><?= $it['pallets'] > 0 ? number_format($it['pallets'], 2) : '—' ?></td>
+                                    <td><span class="badge <?= $ic ?>"><?= $il ?></span></td>
+                                </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    <?php endif; ?>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-muted small px-3 py-2">
+                <?= count($remitos) ?> remito<?= count($remitos) !== 1 ? 's' : '' ?> encontrado<?= count($remitos) !== 1 ? 's' : '' ?>
+                <?= count($remitos) >= 100 ? '(mostrando hasta 100)' : '' ?>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function toggleItems(btn, id) {
+    const row = document.getElementById('items-' + id);
+    const open = !row.classList.contains('d-none');
+    row.classList.toggle('d-none', open);
+    btn.classList.toggle('open', !open);
+}
+</script>
 </body>
 </html>

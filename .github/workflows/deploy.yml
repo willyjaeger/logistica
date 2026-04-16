@@ -1,0 +1,30 @@
+name: Deploy a DonWeb
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Subir a DonWeb por FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /public_html/ops/   # <-- ajustá esta ruta a donde está tu app en DonWeb
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            *.sql
+            hash.php
+            CLAUDE.md
+            README.md
