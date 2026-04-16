@@ -23,6 +23,11 @@ if (empty($remitos_ids)) {
     exit;
 }
 
+// Si la fecha del viaje es hoy → en_camino; si es anterior → ya fue, marcar completada/entregado
+$es_hoy         = ($fecha === date('Y-m-d'));
+$estado_entrega = $es_hoy ? 'en_camino'  : 'completada';
+$estado_remito  = $es_hoy ? 'en_camino'  : 'entregado';
+
 $db->beginTransaction();
 try {
     // Verificar que transportista/camion/chofer pertenecen a esta empresa
@@ -42,17 +47,17 @@ try {
         if (!$st->fetch()) $chofer_id = null;
     }
     $db->prepare("
-        INSERT INTO entregas (empresa_id, fecha, transportista_id, camion_id, chofer_id, observaciones, fecha_salida)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ")->execute([$eid, $fecha, $transportista_id, $camion_id, $chofer_id, $observaciones ?: null, $fecha]);
+        INSERT INTO entregas (empresa_id, fecha, transportista_id, camion_id, chofer_id, observaciones, fecha_salida, estado)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ")->execute([$eid, $fecha, $transportista_id, $camion_id, $chofer_id, $observaciones ?: null, $fecha, $estado_entrega]);
     $entrega_id = (int)$db->lastInsertId();
 
     $ins = $db->prepare("INSERT INTO entrega_remitos (entrega_id, remito_id) VALUES (?, ?)");
-    $upd = $db->prepare("UPDATE remitos SET estado='entregado', fecha_entrega=? WHERE id=? AND empresa_id=?");
+    $upd = $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=? WHERE id=? AND empresa_id=?");
 
     foreach ($remitos_ids as $rid) {
         $ins->execute([$entrega_id, $rid]);
-        $upd->execute([$fecha, $rid, $eid]);
+        $upd->execute([$estado_remito, $fecha, $rid, $eid]);
     }
 
     $db->commit();
