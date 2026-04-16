@@ -75,15 +75,22 @@ $sql = "
            p.nombre     AS proveedor,
            i.fecha_ingreso, i.transportista, i.patente_camion_ext,
            t.id         AS turno_id,
-           t.fecha      AS turno_fecha
+           t.fecha      AS turno_fecha,
+           ef.fecha_salida_real
     FROM remitos r
     JOIN clientes c ON r.cliente_id = c.id
     LEFT JOIN proveedores p ON r.proveedor_id = p.id
     JOIN ingresos i ON r.ingreso_id = i.id
     LEFT JOIN turnos t ON t.remito_id = r.id AND t.empresa_id = r.empresa_id
+    LEFT JOIN (
+        SELECT er.remito_id, DATE(MAX(en.fecha_salida)) AS fecha_salida_real
+        FROM entrega_remitos er
+        JOIN entregas en ON en.id = er.entrega_id
+        WHERE en.fecha_salida IS NOT NULL
+        GROUP BY er.remito_id
+    ) ef ON ef.remito_id = r.id
     WHERE " . implode(' AND ', $where) . "
     ORDER BY i.fecha_ingreso DESC, r.id DESC
-    LIMIT 100
 ";
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
@@ -248,9 +255,14 @@ $nav_modulo = 'panel';
     <!-- Remitos -->
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Remitos</h5>
-        <a href="<?= url('modules/entregas_form.php') ?>" class="btn btn-outline-success btn-sm">
-            <i class="bi bi-truck me-1"></i>Nueva salida
-        </a>
+        <div class="d-flex gap-2">
+            <a href="<?= url('modules/remitos_form.php') ?>" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>Nuevo remito
+            </a>
+            <a href="<?= url('modules/entregas_form.php') ?>" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-truck me-1"></i>Nueva salida
+            </a>
+        </div>
     </div>
 
     <!-- Filtros -->
@@ -290,7 +302,7 @@ $nav_modulo = 'panel';
             <?php if (empty($remitos)): ?>
             <div class="text-center text-muted py-5">
                 <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-                <?= $q || $estado ? 'Sin resultados para ese filtro.' : 'No hay remitos ingresados todavía.' ?>
+                <?= ($q || $estado || $desde || $hasta) ? 'Sin resultados para ese filtro.' : 'No hay remitos ingresados todavía.' ?>
             </div>
             <?php else: ?>
             <div class="table-responsive">
@@ -304,7 +316,8 @@ $nav_modulo = 'panel';
                             <th>Proveedor</th>
                             <th class="text-center">Pallets</th>
                             <th>Estado</th>
-                            <th>Fecha entrega</th>
+                            <th>F. programada</th>
+                            <th>F. efectiva</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -343,6 +356,11 @@ $nav_modulo = 'panel';
                                 <?php [$ye,$me,$de] = explode('-', $r['fecha_entrega']); echo "$de/$me/$ye"; ?>
                             <?php else: ?>—<?php endif; ?>
                         </td>
+                        <td class="small <?= $r['fecha_salida_real'] ? 'text-success fw-semibold' : 'text-muted' ?>">
+                            <?php if ($r['fecha_salida_real']): ?>
+                                <?php [$ye,$me,$de] = explode('-', $r['fecha_salida_real']); echo "$de/$me/$ye"; ?>
+                            <?php else: ?>—<?php endif; ?>
+                        </td>
                         <td class="text-end pe-3">
                             <?php if ($r['turno_id']): ?>
                             <a href="<?= url('modules/turno_form.php') ?>?id=<?= $r['turno_id'] ?>"
@@ -378,7 +396,7 @@ $nav_modulo = 'panel';
                     </tr>
                     <?php if ($items): ?>
                     <tr id="items-<?= $r['id'] ?>" class="row-items d-none">
-                        <td colspan="9">
+                        <td colspan="10">
                             <table class="table table-sm mb-0">
                                 <thead>
                                     <tr class="text-muted">
@@ -414,7 +432,6 @@ $nav_modulo = 'panel';
             </div>
             <div class="text-muted small px-3 py-2">
                 <?= count($remitos) ?> remito<?= count($remitos) !== 1 ? 's' : '' ?> encontrado<?= count($remitos) !== 1 ? 's' : '' ?>
-                <?= count($remitos) >= 100 ? '(mostrando hasta 100)' : '' ?>
             </div>
             <?php endif; ?>
         </div>
