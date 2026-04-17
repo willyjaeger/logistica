@@ -189,7 +189,7 @@ $con_viaje   = $precio_viaje > 0;
 $con_total   = $con_pos && $con_viaje;
 $modo_camion = $precio_modo === 'camion';
 // Cantidad de columnas para colspan en filas de totales
-$ncols = 8 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_total ? 1 : 0);
+$ncols = 7 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_total ? 1 : 0);
 
 $nav_modulo = 'reportes';
 ?>
@@ -434,7 +434,6 @@ $nav_modulo = 'reportes';
                     <th class="text-end">Pal. entrada</th>
                     <th class="text-end">Pal. salida</th>
                     <?php if ($modo_camion): ?><th class="text-center no-print">Camiones</th><?php endif; ?>
-                    <th class="text-end">Stock</th>
                     <th class="text-end">Posiciones</th>
                     <?php if ($con_pos):   ?><th class="text-end">$ Almacenaje</th><?php endif; ?>
                     <?php if ($con_viaje): ?><th class="text-end"><?= $modo_camion ? '$ / camión' : '$ / pallet' ?></th><?php endif; ?>
@@ -502,7 +501,6 @@ $nav_modulo = 'reportes';
                 </td>
                 <?php endif; ?>
                 <td class="text-end col-pos"><?= fmtPal($info['stock']) ?></td>
-                <td class="text-end col-pos"><?= fmtPal($info['stock']) ?></td>
                 <?php if ($con_pos): ?>
                 <td class="text-end col-costo">
                     <?= ($info['stock'] > 0 && $info['costo_pos'] !== null) ? fmtMoney($info['costo_pos']) : '—' ?>
@@ -540,7 +538,7 @@ $nav_modulo = 'reportes';
                 <td class="text-end text-success fw-semibold">+<?= fmtPal((float)$r['total_pallets']) ?></td>
                 <td></td>
                 <?php if ($modo_camion): ?><td class="no-print"></td><?php endif; ?>
-                <td colspan="<?= 2 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_total?1:0) ?>"></td>
+                <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_total?1:0) ?>"></td>
             </tr>
             <?php endforeach; ?>
 
@@ -556,7 +554,7 @@ $nav_modulo = 'reportes';
                 <td></td>
                 <td class="text-end col-viaje fw-semibold">−<?= fmtPal((float)$r['total_pallets']) ?></td>
                 <?php if ($modo_camion): ?><td class="no-print"></td><?php endif; ?>
-                <td colspan="<?= 2 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_total?1:0) ?>"></td>
+                <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_total?1:0) ?>"></td>
             </tr>
             <?php endforeach; ?>
 
@@ -566,14 +564,14 @@ $nav_modulo = 'reportes';
             <!-- ── Subtotales ──────────────────────────── -->
             <?php if ($con_pos || $con_viaje): ?>
             <tr class="subtotal-row">
-                <td colspan="<?= 7 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal almacenaje</td>
+                <td colspan="<?= 6 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal almacenaje</td>
                 <td class="text-end col-pos"><?= number_format($datos['total_posiciones'],1) ?> pos.</td>
                 <?php if ($con_pos):   ?><td class="text-end col-costo"><?= fmtMoney($datos['total_costo_pos']) ?></td><?php endif; ?>
                 <?php if ($con_viaje): ?><td></td><?php endif; ?>
                 <?php if ($con_total): ?><td></td><?php endif; ?>
             </tr>
             <tr class="subtotal-row">
-                <td colspan="<?= 4 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal distribución</td>
+                <td colspan="<?= 3 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal distribución</td>
                 <td class="text-end col-viaje">
                     <?= $modo_camion ? $datos['total_camiones'].' cam.' : fmtPal($datos['total_pal_viajes']).' pal.' ?>
                 </td>
