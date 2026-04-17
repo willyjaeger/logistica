@@ -24,6 +24,7 @@ SOURCE migracion_agenda.sql;
 SOURCE migracion_alter_entregas.sql;
 SOURCE migracion_articulos_pallets.sql;
 SOURCE migracion_cuit_clientes.sql;
+SOURCE migracion_cc_viajes.sql;
 ```
 
 **Generar hash para nueva contraseña**:
@@ -77,19 +78,21 @@ Siempre usar prepared statements con `prepare()` + `execute([$param])`. Nunca co
 |--------|----------|-------------|
 | Panel | `index.php` | Dashboard con stats y lista filtrable de remitos |
 | Remitos | `modules/remitos_*.php` | Albaranes de entrada; el ingreso padre se crea inline en el form. `remitos_guardar_cliente.php` guarda un cliente nuevo inline desde el formulario |
-| Entregas (Salidas) | `modules/entregas_*.php`, `entrega_dia_*.php`, `entrega_asignar.php`, `entrega_confirmar.php` | Viajes de entrega; `entrega_dia_form.php` arma la salida del día |
+| Entregas (Salidas) | `modules/entregas_*.php`, `entrega_dia_*.php`, `entrega_asignar.php`, `entrega_confirmar.php` | Viajes de entrega. Dos flujos de creación: `entrega_dia_form.php` (vista agenda, selecciona remitos por fecha) y `entregas_form.php` (lista, formulario completo). Ambos guardan vía sus respectivos `*_guardar.php` |
+| Entregas (subdir) | `modules/entregas/` | **Directorio vacío (pendiente)** |
 | Turnos | `modules/turno_*.php` | Turnos agendados de entrega asignados a un remito |
 | Agenda | `modules/agenda.php` | Vista semanal/mensual de entregas; vistas `dia`/`semana`/`mes` |
 | Transportistas | `modules/transportistas_*.php`, `camiones_guardar.php`, `choferes_guardar.php` | Empresas transportistas con sus camiones y choferes inline |
 | Config (admin) | `modules/configuracion/` | Clientes, Proveedores, Choferes, Camiones, Usuarios — solo `es_admin()`. **Directorio vacío (pendiente de implementación)** |
 | Stock | `modules/stock/` | Ítems en depósito (estado `en_stock`). **Directorio vacío (pendiente)** |
-| Reportes | `modules/reportes/` | Reporte de camiones. **Directorio vacío (pendiente)** |
+| Reportes | `modules/reportes/cuenta_corriente.php` | Cuenta corriente de proveedores: posiciones diarias en depósito + distribución (por camión o por pallet). Usa tabla `cc_viajes` para registrar camiones por día vía POST inline. |
 
 ### AJAX Endpoints
 - `modules/remitos_ac_clientes.php` — autocomplete de clientes (JSON)
 - `modules/remitos_ac_articulos.php` — autocomplete de artículos (JSON)
-- `modules/remitos_afip_lookup.php` / `modules/ingresos/afip_lookup.php` — consulta CUIT a AFIP (JSON)
+- `modules/remitos_afip_lookup.php` / `modules/ingresos/afip_lookup.php` — consulta CUIT a AFIP (JSON); ambos hacen lo mismo, el de `ingresos/` es la ruta legacy
 - `modules/transportistas_guardar_ajax.php` — guardado inline de transportista desde form de entrega
+- `modules/entrega_asignar.php` — asigna un remito a una entrega existente (POST, redirige)
 
 ### Estados (State Machine)
 - **Remito**: `pendiente` → `turnado` / `programado` / `en_camino` → `entregado` / `parcialmente_entregado` (o `en_stock`)
@@ -97,6 +100,23 @@ Siempre usar prepared statements con `prepare()` + `execute([$param])`. Nunca co
 - **Turno**: `pendiente` → `en_camino` → `entregado` (o `cancelado`)
 
 **Auto-transición**: `index.php` y `agenda.php` ejecutan al cargar un UPDATE que marca como `entregado` todo lo que estaba `en_camino` con fecha anterior a hoy. Este efecto de lado ocurre en cada visita a esas páginas.
+
+### Agrupación de remitos bajo un ingreso
+Al guardar un remito nuevo, `remitos_guardar.php` reutiliza el último `ingreso` (viaje de transporte) si los datos de transporte coinciden con los de `$_SESSION['ingreso_actual']`. Esto permite cargar varios remitos de un mismo camión sin re-ingresar el transporte:
+
+```php
+// En remitos_guardar.php (nuevo remito):
+$sess = $_SESSION['ingreso_actual'] ?? null;
+$mismo = $sess && /* todos los campos de transporte coinciden */;
+if ($mismo) {
+    $ingreso_id = $sess['id'];           // reusar ingreso existente
+} else {
+    // INSERT INTO ingresos ... → $ingreso_id = lastInsertId()
+}
+$_SESSION['ingreso_actual'] = ['id' => $ingreso_id, ...]; // actualizar cache
+```
+
+Si los datos de transporte cambian, se crea un ingreso nuevo automáticamente.
 
 ### Relaciones Master-Detail
 - `ingresos` (1) → `remitos` (N) → `remito_items` (N)

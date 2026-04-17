@@ -186,10 +186,10 @@ $anios = range(date('Y'), 2024, -1);
 
 $con_pos     = $precio_pos   > 0;
 $con_viaje   = $precio_viaje > 0;
-$con_total   = $con_pos && $con_viaje;
+$con_saldo   = $con_pos || $con_viaje;   // columna Saldo acumulado
 $modo_camion = $precio_modo === 'camion';
 // Cantidad de columnas para colspan en filas de totales
-$ncols = 7 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_total ? 1 : 0);
+$ncols = 7 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_saldo ? 1 : 0);
 
 $nav_modulo = 'reportes';
 ?>
@@ -437,7 +437,7 @@ $nav_modulo = 'reportes';
                     <th class="text-end">Posiciones</th>
                     <?php if ($con_pos):   ?><th class="text-end">$ Almacenaje</th><?php endif; ?>
                     <?php if ($con_viaje): ?><th class="text-end"><?= $modo_camion ? '$ / camión' : '$ / pallet' ?></th><?php endif; ?>
-                    <?php if ($con_total): ?><th class="text-end">$ Total</th><?php endif; ?>
+                    <?php if ($con_saldo): ?><th class="text-end" style="background:#1a3a2a">Saldo acumulado</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
@@ -515,7 +515,7 @@ $nav_modulo = 'reportes';
                     <?php else: ?>—<?php endif; ?>
                 </td>
                 <?php endif; ?>
-                <?php if ($con_total): ?>
+                <?php if ($con_saldo): ?>
                 <td class="text-end col-costo">
                     <?php $tot = ($info['costo_pos'] ?? 0) + ($info['costo_viaje'] ?? 0);
                     echo $tot > 0 ? fmtMoney($tot) : '—'; ?>
@@ -538,7 +538,7 @@ $nav_modulo = 'reportes';
                 <td class="text-end text-success fw-semibold">+<?= fmtPal((float)$r['total_pallets']) ?></td>
                 <td></td>
                 <?php if ($modo_camion): ?><td class="no-print"></td><?php endif; ?>
-                <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_total?1:0) ?>"></td>
+                <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_saldo?1:0) ?>"></td>
             </tr>
             <?php endforeach; ?>
 
@@ -554,7 +554,7 @@ $nav_modulo = 'reportes';
                 <td></td>
                 <td class="text-end col-viaje fw-semibold">−<?= fmtPal((float)$r['total_pallets']) ?></td>
                 <?php if ($modo_camion): ?><td class="no-print"></td><?php endif; ?>
-                <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_total?1:0) ?>"></td>
+                <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_saldo?1:0) ?>"></td>
             </tr>
             <?php endforeach; ?>
 
@@ -568,7 +568,7 @@ $nav_modulo = 'reportes';
                 <td class="text-end col-pos"><?= number_format($datos['total_posiciones'],1) ?> pos.</td>
                 <?php if ($con_pos):   ?><td class="text-end col-costo"><?= fmtMoney($datos['total_costo_pos']) ?></td><?php endif; ?>
                 <?php if ($con_viaje): ?><td></td><?php endif; ?>
-                <?php if ($con_total): ?><td></td><?php endif; ?>
+                <?php if ($con_saldo): ?><td></td><?php endif; ?>
             </tr>
             <tr class="subtotal-row">
                 <td colspan="<?= 3 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal distribución</td>
@@ -578,7 +578,7 @@ $nav_modulo = 'reportes';
                 <td colspan="3"></td>
                 <?php if ($con_pos):   ?><td></td><?php endif; ?>
                 <?php if ($con_viaje): ?><td class="text-end col-viaje"><?= fmtMoney($datos['total_costo_viajes']) ?></td><?php endif; ?>
-                <?php if ($con_total): ?><td></td><?php endif; ?>
+                <?php if ($con_saldo): ?><td></td><?php endif; ?>
             </tr>
             <?php endif; ?>
 
@@ -588,7 +588,7 @@ $nav_modulo = 'reportes';
                 <td colspan="<?= $ncols ?>" class="text-end pe-3">
                     <?= strtoupper($meses[$mes]) ?> <?= $anio ?> — <?= number_format($datos['total_posiciones'],1) ?> posiciones
                 </td>
-                <?php elseif (!$con_total): ?>
+                <?php elseif (!$con_saldo): ?>
                 <td colspan="<?= $ncols-1 ?>" class="text-end pe-3">TOTAL <?= strtoupper($meses[$mes]) ?> <?= $anio ?></td>
                 <td class="text-end"><?= fmtMoney($datos['total_general']) ?></td>
                 <?php else: ?>
