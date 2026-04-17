@@ -120,7 +120,7 @@ $estado_label = [
     'en_stock'               => ['bg-secondary',         'En stock'],
     'turnado'                => ['bg-primary',           'Turnado'],
     'programado'             => ['bg-info',              'Programado'],
-    'en_camino'              => ['bg-warning text-dark', 'En camino'],
+    'en_camino'              => ['badge-estado-en_camino', 'En camino'],
 ];
 
 $nav_modulo = 'panel';

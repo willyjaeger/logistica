@@ -79,6 +79,6 @@
 .badge-estado-entregado            { background-color: #198754; }
 .badge-estado-en_stock             { background-color: #6f42c1; }
 .badge-estado-armando              { background-color: #adb5bd; color: #000; }
-.badge-estado-en_camino            { background-color: #0d6efd; }
+.badge-estado-en_camino            { background-color: #f97316; color: #fff; }
 .badge-estado-completada           { background-color: #198754; }
 .badge-estado-con_incidencias      { background-color: #dc3545; }

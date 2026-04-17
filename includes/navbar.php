@@ -46,10 +46,18 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                     </a>
                 </li>
 
-                <li class="nav-item">
-                    <a class="nav-link<?= $nav_modulo === 'reportes' ? ' active' : '' ?>" href="<?= url('modules/reportes/camiones.php') ?>">
+                <li class="nav-item dropdown">
+                    <a class="nav-link<?= $nav_modulo === 'reportes' ? ' active' : '' ?> dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-bar-chart me-1"></i>Reportes
                     </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="<?= url('modules/reportes/camiones.php') ?>">
+                            <i class="bi bi-truck me-2"></i>Reporte camiones
+                        </a></li>
+                        <li><a class="dropdown-item" href="<?= url('modules/reportes/cuenta_corriente.php') ?>">
+                            <i class="bi bi-journal-text me-2"></i>Cuenta corriente
+                        </a></li>
+                    </ul>
                 </li>
 
                 <?php if (es_admin()): ?>

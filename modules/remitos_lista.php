@@ -45,12 +45,20 @@ $sql = "
            p.nombre     AS proveedor,
            i.fecha_ingreso, i.transportista, i.patente_camion_ext,
            t.id         AS turno_id,
-           t.fecha      AS turno_fecha
+           t.fecha      AS turno_fecha,
+           ef.fecha_salida_real
     FROM remitos r
     JOIN clientes c ON r.cliente_id = c.id
     LEFT JOIN proveedores p ON r.proveedor_id = p.id
     JOIN ingresos i ON r.ingreso_id = i.id
     LEFT JOIN turnos t ON t.remito_id = r.id AND t.empresa_id = r.empresa_id
+    LEFT JOIN (
+        SELECT er.remito_id, DATE(MAX(en.fecha_salida)) AS fecha_salida_real
+        FROM entrega_remitos er
+        JOIN entregas en ON en.id = er.entrega_id
+        WHERE en.estado IN ('completada','entregado','con_incidencias')
+        GROUP BY er.remito_id
+    ) ef ON ef.remito_id = r.id
     WHERE " . implode(' AND ', $where) . "
     ORDER BY i.fecha_ingreso DESC, r.id DESC
     LIMIT 100
@@ -84,7 +92,7 @@ $estado_label = [
     'en_stock'               => ['bg-secondary',         'En stock'],
     'turnado'                => ['bg-primary',           'Turnado'],
     'programado'             => ['bg-info',              'Programado'],
-    'en_camino'              => ['bg-warning text-dark', 'En camino'],
+    'en_camino'              => ['badge-estado-en_camino', 'En camino'],
 ];
 
 $nav_modulo = 'remitos';
@@ -221,7 +229,8 @@ $nav_modulo = 'remitos';
                             <th>Proveedor</th>
                             <th class="text-center">Pallets</th>
                             <th>Estado</th>
-                            <th>Fecha entrega</th>
+                            <th>F. programada</th>
+                            <th>F. efectiva</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -260,6 +269,11 @@ $nav_modulo = 'remitos';
                                 <?php [$ye,$me,$de] = explode('-', $r['fecha_entrega']); echo "$de/$me/$ye"; ?>
                             <?php else: ?>—<?php endif; ?>
                         </td>
+                        <td class="small <?= $r['fecha_salida_real'] ? 'text-success fw-semibold' : 'text-muted' ?>">
+                            <?php if ($r['fecha_salida_real']): ?>
+                                <?php [$ye,$me,$de] = explode('-', $r['fecha_salida_real']); echo "$de/$me/$ye"; ?>
+                            <?php else: ?>—<?php endif; ?>
+                        </td>
                         <td class="text-end pe-3">
                             <?php if ($r['turno_id']): ?>
                             <a href="<?= url('modules/turno_form.php') ?>?id=<?= $r['turno_id'] ?>"
@@ -295,7 +309,7 @@ $nav_modulo = 'remitos';
                     </tr>
                     <?php if ($items): ?>
                     <tr id="items-<?= $r['id'] ?>" class="row-items d-none">
-                        <td colspan="9">
+                        <td colspan="10">
                             <table class="table table-sm mb-0">
                                 <thead>
                                     <tr class="text-muted">
