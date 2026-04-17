@@ -262,6 +262,54 @@ function fmtDia(string $ymd): string {
             </button>
         </div>
     </form>
+
+    <?php if ($edit_id && $entrega):
+        $est = $entrega['estado'];
+        $badges = [
+            'armando'   => ['secondary', 'Armando'],
+            'en_camino' => ['primary',   'En camino'],
+        ];
+        [$badge_color, $badge_label] = $badges[$est] ?? ['secondary', $est];
+    ?>
+    <div class="seccion">
+        <div class="seccion-titulo"><i class="bi bi-arrow-repeat me-1"></i>Cambiar estado</div>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="badge bg-<?= $badge_color ?> fs-6 px-3 py-2"><?= $badge_label ?></span>
+            <div class="d-flex gap-2 flex-wrap ms-auto">
+                <?php if ($est === 'armando'): ?>
+                <form method="POST" action="<?= url('modules/entrega_confirmar.php') ?>">
+                    <input type="hidden" name="entrega_id" value="<?= $edit_id ?>">
+                    <input type="hidden" name="fecha"      value="<?= h($entrega['fecha']) ?>">
+                    <button type="submit" class="btn btn-primary"
+                            onclick="return confirm('¿Confirmar salida? Los remitos pasarán a En camino.')">
+                        <i class="bi bi-truck me-1"></i>Confirmar salida
+                    </button>
+                </form>
+                <?php endif; ?>
+                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
+                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
+                    <input type="hidden" name="nuevo_estado" value="completada">
+                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
+                    <input type="hidden" name="back"         value="<?= h($back) ?>">
+                    <button type="submit" class="btn btn-success"
+                            onclick="return confirm('¿Marcar como completada? Los remitos quedarán como entregados.')">
+                        <i class="bi bi-check-circle me-1"></i>Completada
+                    </button>
+                </form>
+                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
+                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
+                    <input type="hidden" name="nuevo_estado" value="con_incidencias">
+                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
+                    <input type="hidden" name="back"         value="<?= h($back) ?>">
+                    <button type="submit" class="btn btn-outline-warning"
+                            onclick="return confirm('¿Registrar con incidencias? Los remitos quedarán como entregados.')">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Con incidencias
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Modal nuevo transportista -->
