@@ -102,6 +102,8 @@ if ($proveedor_id > 0) {
     $total_costo_viajes_sum = 0.0;
     $cursor = new DateTime($inicio);
     $finDt  = new DateTime($fin);
+    $saldo_pos_acum   = 0.0;
+    $saldo_viaje_acum = 0.0;
 
     while ($cursor <= $finDt) {
         $d        = $cursor->format('Y-m-d');
@@ -128,19 +130,28 @@ if ($proveedor_id > 0) {
                 : $pal_sal      * $precio_viaje;
         }
 
+        $costo_pos_dia = $precio_pos > 0 ? $stock * $precio_pos : null;
+        $saldo_pos_acum   += $costo_pos_dia ?? 0;
+        $saldo_viaje_acum += $costo_viaje   ?? 0;
+
         $total_posiciones       += $stock;
         $total_pal_viajes       += $pal_sal;
         $total_camiones         += $camiones_dia;
         $total_costo_viajes_sum += $costo_viaje ?? 0;
 
+        $saldo_acum = ($precio_pos > 0 || $precio_viaje > 0)
+            ? $saldo_pos_acum + $saldo_viaje_acum
+            : null;
+
         $dias[$d] = [
             'stock'       => $stock,
-            'entradas'    => $entradas,   // detalle de ingresos
-            'salidas'     => $salidas,    // detalle de salidas (nuevo)
+            'entradas'    => $entradas,
+            'salidas'     => $salidas,
             'pal_sal'     => $pal_sal,
             'camiones'    => $camiones_dia,
-            'costo_pos'   => $precio_pos   > 0 ? $stock * $precio_pos : null,
+            'costo_pos'   => $costo_pos_dia,
             'costo_viaje' => $costo_viaje,
+            'saldo_acum'  => $saldo_acum,
         ];
         $cursor->modify('+1 day');
     }
@@ -447,7 +458,7 @@ $nav_modulo = 'reportes';
                 $tiene_entradas = !empty($info['entradas']);
                 $tiene_salidas  = !empty($info['salidas']);
                 $tiene_movs     = $tiene_entradas || $tiene_salidas;
-                if ($info['stock'] == 0 && !$tiene_movs) continue;
+                if (!$tiene_movs) continue;
 
                 $sem     = diaSemana($dia);
                 $esFinde = in_array($sem, ['Sáb','Dom']);
@@ -517,8 +528,7 @@ $nav_modulo = 'reportes';
                 <?php endif; ?>
                 <?php if ($con_saldo): ?>
                 <td class="text-end col-costo">
-                    <?php $tot = ($info['costo_pos'] ?? 0) + ($info['costo_viaje'] ?? 0);
-                    echo $tot > 0 ? fmtMoney($tot) : '—'; ?>
+                    <?= $info['saldo_acum'] > 0 ? fmtMoney($info['saldo_acum']) : '—' ?>
                 </td>
                 <?php endif; ?>
             </tr>
