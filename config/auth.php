@@ -10,12 +10,30 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Redirige al login si no hay sesión activa
+// Redirige al login si no hay sesión activa; controla timeout y cambio de clave obligatorio
 function require_login(): void
 {
     if (empty($_SESSION['usuario_id'])) {
         header('Location: ' . BASE_URL . '/login.php');
         exit;
+    }
+
+    // Timeout de inactividad
+    $timeout_seg = max(60, (int)($_SESSION['session_timeout_min'] ?? 30)) * 60;
+    if (isset($_SESSION['ultimo_acceso']) && (time() - $_SESSION['ultimo_acceso']) > $timeout_seg) {
+        session_destroy();
+        header('Location: ' . BASE_URL . '/login.php?timeout=1');
+        exit;
+    }
+    $_SESSION['ultimo_acceso'] = time();
+
+    // Forzar cambio de clave en primer login
+    if (!empty($_SESSION['debe_cambiar_clave'])) {
+        $script = $_SERVER['PHP_SELF'] ?? '';
+        if (strpos($script, 'cambiar_clave') === false) {
+            header('Location: ' . BASE_URL . '/cambiar_clave.php');
+            exit;
+        }
     }
 }
 

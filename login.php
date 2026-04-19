@@ -20,8 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Completá usuario y contraseña.';
     } else {
         $stmt = db()->prepare("
-            SELECT u.id, u.nombre, u.password, u.rol, u.activo,
-                   e.id AS empresa_id, e.nombre AS empresa_nombre
+            SELECT u.id, u.nombre, u.password, u.rol, u.activo, u.debe_cambiar_clave,
+                   e.id AS empresa_id, e.nombre AS empresa_nombre,
+                   COALESCE(e.session_timeout_min, 30) AS session_timeout_min
             FROM usuarios u
             JOIN empresas e ON u.empresa_id = e.id
             WHERE u.usuario = ? AND u.activo = 1 AND e.activa = 1
@@ -32,13 +33,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($row && password_verify($password, $row['password'])) {
             session_regenerate_id(true);
-            $_SESSION['usuario_id']     = $row['id'];
-            $_SESSION['usuario_nombre'] = $row['nombre'];
-            $_SESSION['usuario_rol']    = $row['rol'];
-            $_SESSION['empresa_id']     = $row['empresa_id'];
-            $_SESSION['empresa_nombre'] = $row['empresa_nombre'];
+            $_SESSION['usuario_id']          = $row['id'];
+            $_SESSION['usuario_nombre']      = $row['nombre'];
+            $_SESSION['usuario_rol']         = $row['rol'];
+            $_SESSION['empresa_id']          = $row['empresa_id'];
+            $_SESSION['empresa_nombre']      = $row['empresa_nombre'];
+            $_SESSION['debe_cambiar_clave']  = (bool)$row['debe_cambiar_clave'];
+            $_SESSION['session_timeout_min'] = (int)$row['session_timeout_min'];
+            $_SESSION['ultimo_acceso']       = time();
 
-            header('Location: ' . BASE_URL . '/index.php');
+            header('Location: ' . BASE_URL . ($row['debe_cambiar_clave'] ? '/cambiar_clave.php' : '/index.php'));
             exit;
         } else {
             $error = 'Usuario o contraseña incorrectos.';
@@ -73,6 +77,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="alert alert-danger d-flex align-items-center gap-2 py-2">
                 <i class="bi bi-exclamation-circle-fill"></i>
                 <span><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></span>
+            </div>
+        <?php elseif (!empty($_GET['timeout'])): ?>
+            <div class="alert alert-warning d-flex align-items-center gap-2 py-2">
+                <i class="bi bi-clock"></i>
+                <span>Tu sesión expiró por inactividad. Volvé a ingresar.</span>
             </div>
         <?php endif; ?>
 
