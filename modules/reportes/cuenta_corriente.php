@@ -123,7 +123,9 @@ if ($proveedor_id > 0) {
                           WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=?");
     $si_q->execute([$eid, $proveedor_id, $anio, $mes]);
     $si_row = $si_q->fetch();
-    $saldo_ini = ($si_row !== false) ? (float)$si_row['saldo'] : $saldo_ini_auto;
+    $saldo_ini  = ($si_row !== false) ? (float)$si_row['saldo'] : $saldo_ini_auto;
+    // Pallets manuales no registrados en remitos (persiste durante todo el mes)
+    $delta_ini  = $saldo_ini - $saldo_ini_auto;
 
     // ── Cálculo de posiciones ─────────────────────────────────
     //
@@ -213,8 +215,11 @@ if ($proveedor_id > 0) {
             ? $saldo_pos_acum + $saldo_viaje_acum
             : null;
 
+        // Stock efectivo: remitos + delta de pallets manuales (persiste en todos los eventos)
+        $stock_eff = max(0.0, $stock + $delta_ini);
+
         $dias[$d] = [
-            'stock'          => $stock,                 // cierre de hoy
+            'stock'          => $stock_eff,             // cierre de hoy (incluye saldo ini manual)
             'saldo_anterior' => $saldo_evento_anterior, // base del cobro
             'dias_entre'     => $dias_entre,            // días transcurridos
             'pos_cobradas'   => $pos_cobradas,          // pal × días
@@ -228,7 +233,7 @@ if ($proveedor_id > 0) {
         ];
 
         // Este evento pasa a ser el anterior para el próximo
-        $saldo_evento_anterior = $stock;
+        $saldo_evento_anterior = $stock_eff;
         $fecha_evento_anterior = $d;
     }
 
@@ -244,6 +249,7 @@ if ($proveedor_id > 0) {
             && $r['fecha_salida_real'] <= $fin)                             $total_salido    += $pal;
         if ($r['fecha_salida_real'] === null)                               $stock_actual    += $pal;
     }
+    $stock_actual = max(0.0, $stock_actual + $delta_ini); // sumar pallets manuales del saldo ini
 
     // total_costo_pos viene acumulado en $saldo_pos_acum del loop de eventos
     $total_costo_pos    = $precio_pos   > 0 ? $saldo_pos_acum : null;
@@ -327,10 +333,13 @@ $nav_modulo = 'reportes';
                      border:2px solid #f97316; border-radius:6px; padding:2px 4px;
                      font-size:.9rem; background:#fff7ed; }
         .input-cam:focus { outline:none; border-color:#c45200; box-shadow:0 0 0 2px #fde8d0; }
-        /* Alineación tabla: evita wrap en columnas numéricas */
-        #tabla-cc th                { white-space: nowrap; }
-        #tabla-cc td                { white-space: nowrap; }
-        #tabla-cc td:nth-child(3)   { white-space: normal; min-width: 160px; }  /* Concepto */
+        /* Alineación tabla */
+        #tabla-cc th                { white-space: nowrap; text-align: center !important; }
+        #tabla-cc th:nth-child(1)   { text-align: left !important; }  /* Fecha */
+        #tabla-cc th:nth-child(3)   { text-align: left !important; }  /* Concepto */
+        #tabla-cc td                { white-space: nowrap; text-align: center !important; }
+        #tabla-cc td:nth-child(1)   { text-align: left !important; }  /* Fecha */
+        #tabla-cc td:nth-child(3)   { text-align: left !important; white-space: normal; min-width: 160px; } /* Concepto */
         /* Saldo inicial */
         .saldo-ini-bar { background: #f0f4ff; border-bottom: 1px solid #d0d9f0; }
         .input-saldo-ini { width:80px; text-align:center; font-weight:700;
