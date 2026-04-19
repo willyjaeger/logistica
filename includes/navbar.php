@@ -46,6 +46,7 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                     </a>
                 </li>
 
+                <?php if (es_admin()): ?>
                 <li class="nav-item dropdown">
                     <a class="nav-link<?= $nav_modulo === 'reportes' ? ' active' : '' ?> dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-bar-chart me-1"></i>Reportes
@@ -59,6 +60,7 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                         </a></li>
                     </ul>
                 </li>
+                <?php endif; ?>
 
                 <?php if (es_admin()): ?>
                 <li class="nav-item dropdown">

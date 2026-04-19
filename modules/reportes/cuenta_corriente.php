@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/auth.php';
 require_login();
+if (!es_admin()) { header('Location: ' . url('index.php')); exit; }
 
 $db  = db();
 $eid = empresa_id();
