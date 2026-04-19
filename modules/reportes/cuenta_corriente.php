@@ -291,7 +291,7 @@ $con_viaje   = $precio_viaje > 0;
 $con_saldo   = $con_pos || $con_viaje;   // columna Saldo acumulado
 $modo_camion = $precio_modo === 'camion';
 // Cantidad de columnas para colspan en filas de totales
-$ncols = 7 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_saldo ? 1 : 0);
+$ncols = 6 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_saldo ? 1 : 0);
 
 $nav_modulo = 'reportes';
 ?>
@@ -547,7 +547,7 @@ $nav_modulo = 'reportes';
                    step="0.5" min="0"
                    value="<?= number_format($saldo_ini, 1, '.', '') ?>"
                    title="Pallets en depósito al inicio del período">
-            <span class="text-muted small">pallets al 01/<?= $mes ?>/<?= $anio ?></span>
+            <span class="text-muted small">pallets al <?= fmtDia($ayer_ini) ?></span>
             <?php if ($saldo_ini_get !== null): ?>
             <span class="badge bg-warning text-dark ms-1">
                 <i class="bi bi-exclamation-triangle me-1"></i>Sin guardar
@@ -696,27 +696,6 @@ $nav_modulo = 'reportes';
 
             <?php endif; // tiene_detalle ?>
             <?php endforeach; // dias ?>
-
-            <!-- ── Subtotales ──────────────────────────── -->
-            <?php if ($con_pos || $con_viaje): ?>
-            <tr class="subtotal-row">
-                <td colspan="<?= 7 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal almacenaje</td>
-                <td class="text-end col-pos"><?= number_format($datos['total_posiciones'],1) ?> pal.</td>
-                <?php if ($con_pos):   ?><td class="text-end col-costo"><?= fmtMoney($datos['total_costo_pos']) ?></td><?php endif; ?>
-                <?php if ($con_viaje): ?><td></td><?php endif; ?>
-                <?php if ($con_saldo): ?><td></td><?php endif; ?>
-            </tr>
-            <tr class="subtotal-row">
-                <td colspan="<?= 3 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal distribución</td>
-                <td class="text-end col-viaje">
-                    <?= $modo_camion ? $datos['total_camiones'].' cam.' : fmtPal($datos['total_pal_viajes']).' pal.' ?>
-                </td>
-                <td colspan="3"></td>
-                <?php if ($con_pos):   ?><td></td><?php endif; ?>
-                <?php if ($con_viaje): ?><td class="text-end col-viaje"><?= fmtMoney($datos['total_costo_viajes']) ?></td><?php endif; ?>
-                <?php if ($con_saldo): ?><td></td><?php endif; ?>
-            </tr>
-            <?php endif; ?>
 
             <!-- ── Total general ───────────────────────── -->
             <tr class="total-row">
