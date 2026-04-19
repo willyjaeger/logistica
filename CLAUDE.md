@@ -42,6 +42,7 @@ Procedural PHP con SQL embebido y HTML inline. Sin MVC. Una responsabilidad por 
 - **Páginas de lista** (`*_lista.php`): consulta + render de tabla con filas expandibles
 - **Páginas de formulario** (`*_form.php`): carga entidad por `?id=` (GET) → render form
 - **Handlers de guardado** (`*_guardar.php`): POST → validar → INSERT/UPDATE → redirect a lista (patrón PRG)
+- **Handlers de eliminación** (`*_eliminar.php`): POST con `?id=` → DELETE → redirect a lista (mismo patrón PRG; verificar `empresa_id` antes de borrar)
 - **Endpoints AJAX**: devuelven JSON; no incluyen HTML ni llaman a `require_login()` internamente (la sesión ya existe)
 
 ### Autenticación y Sesión
@@ -78,14 +79,14 @@ Siempre usar prepared statements con `prepare()` + `execute([$param])`. Nunca co
 |--------|----------|-------------|
 | Panel | `index.php` | Dashboard con stats y lista filtrable de remitos |
 | Remitos | `modules/remitos_*.php` | Albaranes de entrada; el ingreso padre se crea inline en el form. `remitos_guardar_cliente.php` guarda un cliente nuevo inline desde el formulario |
-| Entregas (Salidas) | `modules/entregas_*.php`, `entrega_dia_*.php`, `entrega_asignar.php`, `entrega_confirmar.php` | Viajes de entrega. Dos flujos de creación: `entrega_dia_form.php` (vista agenda, selecciona remitos por fecha) y `entregas_form.php` (lista, formulario completo). Ambos guardan vía sus respectivos `*_guardar.php` |
+| Entregas (Salidas) | `modules/entregas_*.php`, `entrega_dia_*.php`, `entrega_asignar.php`, `entrega_confirmar.php`, `entrega_completar.php` | Viajes de entrega. Dos flujos de creación: `entrega_dia_form.php` (vista agenda, selecciona remitos por fecha) y `entregas_form.php` (lista, formulario completo). Ambos guardan vía sus respectivos `*_guardar.php`. `entrega_confirmar.php` avanza estado a `en_camino`; `entrega_completar.php` lo cierra como `completada` |
 | Entregas (subdir) | `modules/entregas/` | **Directorio vacío (pendiente)** |
 | Turnos | `modules/turno_*.php` | Turnos agendados de entrega asignados a un remito |
 | Agenda | `modules/agenda.php` | Vista semanal/mensual de entregas; vistas `dia`/`semana`/`mes` |
 | Transportistas | `modules/transportistas_*.php`, `camiones_guardar.php`, `choferes_guardar.php` | Empresas transportistas con sus camiones y choferes inline |
 | Config (admin) | `modules/configuracion/` | Clientes, Proveedores, Choferes, Camiones, Usuarios — solo `es_admin()`. **Directorio vacío (pendiente de implementación)** |
 | Stock | `modules/stock/` | Ítems en depósito (estado `en_stock`). **Directorio vacío (pendiente)** |
-| Reportes | `modules/reportes/cuenta_corriente.php` | Cuenta corriente de proveedores: posiciones diarias en depósito + distribución (por camión o por pallet). Usa tabla `cc_viajes` para registrar camiones por día vía POST inline. |
+| Reportes | `modules/reportes/cuenta_corriente.php` | Cuenta corriente de proveedores: posiciones diarias en depósito + distribución (por camión o por pallet). Usa tabla `cc_viajes` para registrar camiones por día vía POST inline. `modules/reportes/camiones.php` está enlazado en la navbar pero **pendiente de implementación**. |
 
 ### AJAX Endpoints
 - `modules/remitos_ac_clientes.php` — autocomplete de clientes (JSON)
@@ -151,7 +152,7 @@ unset($_SESSION['form_post']);
 ### Frontend
 - **Bootstrap 5.3.3** (CDN) + **Bootstrap Icons 1.11.3** (CDN)
 - CSS personalizado mínimo en `assets/css/app.css`
-- `includes/navbar.php`: incluye el JS de "Enter avanza campo" y "select-all on focus" (no hace falta `assets/js/forms.js` por separado — está embebido en la navbar)
+- `includes/navbar.php`: incluye inline el JS de "Enter avanza campo" y "select-all on focus". `assets/js/forms.js` existe como implementación de referencia más completa (añade el evento `formUltimoCampo` y maneja `textarea.select()`) pero **no se carga en ninguna página** — no agregar `<script src>` para él salvo que se quiera migrar.
 - Variable `$nav_modulo` en cada página para marcar activo en `includes/navbar.php`. Valores válidos: `'panel'`, `'ingresos'`, `'remitos'`, `'entregas'`, `'transportistas'`, `'agenda'`, `'stock'`, `'reportes'`, `'config'`
 
 ### Formato de número de remito

@@ -107,15 +107,21 @@ if ($proveedor_id > 0) {
 
     while ($cursor <= $finDt) {
         $d        = $cursor->format('Y-m-d');
-        $stock    = 0.0;
-        $pal_sal  = 0.0;
-        $entradas = [];   // remitos que ingresaron hoy
-        $salidas  = [];   // remitos que salieron hoy (detalle completo)
+        $stock       = 0.0;
+        $stock_inicio = 0.0;  // balance antes de los movimientos de hoy (para cobro)
+        $pal_sal     = 0.0;
+        $entradas    = [];   // remitos que ingresaron hoy
+        $salidas     = [];   // remitos que salieron hoy (detalle completo)
 
         foreach ($remitos_periodo as $r) {
             $pal = (float)$r['total_pallets'];
+            // Saldo fin de día (para mostrar en columna Posiciones)
             if ($r['fecha_ingreso'] <= $d && ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $d)) {
                 $stock += $pal;
+            }
+            // Saldo inicio de día (para cobro: ingresó antes de hoy, aún no salió o sale hoy)
+            if ($r['fecha_ingreso'] < $d && ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] >= $d)) {
+                $stock_inicio += $pal;
             }
             if ($r['fecha_ingreso'] === $d)     $entradas[] = $r;
             if ($r['fecha_salida_real'] === $d) { $salidas[] = $r; $pal_sal += $pal; }
@@ -130,11 +136,11 @@ if ($proveedor_id > 0) {
                 : $pal_sal      * $precio_viaje;
         }
 
-        $costo_pos_dia = $precio_pos > 0 ? $stock * $precio_pos : null;
+        $costo_pos_dia = $precio_pos > 0 ? $stock_inicio * $precio_pos : null;
         $saldo_pos_acum   += $costo_pos_dia ?? 0;
         $saldo_viaje_acum += $costo_viaje   ?? 0;
 
-        $total_posiciones       += $stock;
+        $total_posiciones       += $stock_inicio;
         $total_pal_viajes       += $pal_sal;
         $total_camiones         += $camiones_dia;
         $total_costo_viajes_sum += $costo_viaje ?? 0;
