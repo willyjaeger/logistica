@@ -60,6 +60,9 @@ $anio         = max(2020, (int)($_GET['anio']       ?? date('Y')));
 $precio_pos   = (float)str_replace(',', '.', $_GET['precio_pos']   ?? '0');
 $precio_viaje = (float)str_replace(',', '.', $_GET['precio_viaje'] ?? '0');
 $precio_modo  = in_array($_GET['precio_modo'] ?? '', ['camion','pallet']) ? $_GET['precio_modo'] : 'camion';
+$saldo_ini_get = array_key_exists('saldo_ini', $_GET)
+    ? max(0.0, (float)str_replace(',', '.', $_GET['saldo_ini']))
+    : null;
 
 // ── Proveedores ───────────────────────────────────────────────
 $pq = $db->prepare("SELECT id, nombre FROM proveedores WHERE empresa_id=? AND activo=1 ORDER BY nombre");
@@ -123,7 +126,8 @@ if ($proveedor_id > 0) {
                           WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=?");
     $si_q->execute([$eid, $proveedor_id, $anio, $mes]);
     $si_row = $si_q->fetch();
-    $saldo_ini  = ($si_row !== false) ? (float)$si_row['saldo'] : $saldo_ini_auto;
+    $saldo_ini  = $saldo_ini_get !== null ? $saldo_ini_get
+                : (($si_row !== false) ? (float)$si_row['saldo'] : $saldo_ini_auto);
     // Pallets manuales no registrados en remitos (persiste durante todo el mes)
     $delta_ini  = $saldo_ini - $saldo_ini_auto;
 
@@ -432,6 +436,9 @@ $nav_modulo = 'reportes';
                 </div>
             </div>
         </div>
+        <?php if ($saldo_ini_get !== null): ?>
+        <input type="hidden" name="saldo_ini" value="<?= h($saldo_ini_get) ?>">
+        <?php endif; ?>
     </form>
 
     <?php if ($datos): ?>
@@ -536,12 +543,16 @@ $nav_modulo = 'reportes';
         <div class="saldo-ini-bar d-flex align-items-center gap-2 px-3 py-2 no-print">
             <i class="bi bi-box-seam col-pos"></i>
             <span class="small fw-semibold text-uppercase" style="color:#5a29a3">Saldo inicial</span>
-            <input type="number" name="saldo_ini" class="input-saldo-ini"
+            <input type="number" name="saldo_ini" id="input-saldo-ini" class="input-saldo-ini"
                    step="0.5" min="0"
                    value="<?= number_format($saldo_ini, 1, '.', '') ?>"
                    title="Pallets en depósito al inicio del período">
             <span class="text-muted small">pallets al 01/<?= $mes ?>/<?= $anio ?></span>
-            <?php if (abs($saldo_ini - $saldo_ini_auto) > 0.01): ?>
+            <?php if ($saldo_ini_get !== null): ?>
+            <span class="badge bg-warning text-dark ms-1">
+                <i class="bi bi-exclamation-triangle me-1"></i>Sin guardar
+            </span>
+            <?php elseif (abs($saldo_ini - $saldo_ini_auto) > 0.01): ?>
             <span class="badge bg-secondary ms-1" title="Valor que calcula el sistema desde los remitos">
                 Sistema: <?= number_format($saldo_ini_auto, 1) ?>
             </span>
@@ -780,6 +791,17 @@ function toggleGrp(grpId, btn) {
     rows.forEach(r => r.classList.toggle('d-none', open));
     btn.classList.toggle('open', !open);
 }
+(function () {
+    const inp = document.getElementById('input-saldo-ini');
+    if (!inp) return;
+    const orig = inp.value;
+    inp.addEventListener('blur', function () {
+        if (this.value === orig) return; // sin cambio, no recargar
+        const url = new URL(window.location.href);
+        url.searchParams.set('saldo_ini', this.value || '0');
+        window.location.href = url.toString();
+    });
+})();
 let todoAbierto = false;
 function toggleTodo() {
     todoAbierto = !todoAbierto;
