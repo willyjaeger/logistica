@@ -165,8 +165,12 @@ if ($proveedor_id > 0) {
     $precio_pos_dia         = $precio_pos; // ya es precio por día
 
     // Punto de partida: saldo inicial (guardado en DB o auto-calculado)
+    // Si hay saldo ini > 0 arrancamos desde el día anterior al mes,
+    // así el primer evento del mes (aunque sea el día 1) tiene dias >= 1.
     $saldo_evento_anterior = $saldo_ini;
-    $fecha_evento_anterior = $inicio;
+    $fecha_evento_anterior = $saldo_ini > 0
+        ? (new DateTime($inicio))->modify('-1 day')->format('Y-m-d')
+        : $inicio;
 
     foreach ($eventos_fechas as $d) {
         // Stock al CIERRE de este evento (después de todos los movimientos de hoy)
