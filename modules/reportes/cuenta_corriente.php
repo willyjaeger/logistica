@@ -223,8 +223,8 @@ if ($proveedor_id > 0) {
         if ($r['fecha_salida_real'] === null)                               $stock_actual    += $pal;
     }
 
-    // total_posiciones = suma de pallets-día; costo = pallets-día × (precio_mensual / 30)
-    $total_costo_pos    = $precio_pos   > 0 ? $total_posiciones * ($precio_pos / 30.0) : null;
+    // total_costo_pos viene acumulado en $saldo_pos_acum del loop de eventos
+    $total_costo_pos    = $precio_pos   > 0 ? $saldo_pos_acum : null;
     $total_costo_viajes = $precio_viaje > 0 ? $total_costo_viajes_sum                  : null;
     $total_general      = ($total_costo_pos ?? 0) + ($total_costo_viajes ?? 0);
 
