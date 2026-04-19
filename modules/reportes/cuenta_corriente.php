@@ -129,7 +129,7 @@ if ($proveedor_id > 0) {
     $total_costo_viajes_sum = 0.0;
     $saldo_pos_acum         = 0.0;
     $saldo_viaje_acum       = 0.0;
-    $precio_pos_dia         = $precio_pos > 0 ? $precio_pos / 30.0 : 0.0;
+    $precio_pos_dia         = $precio_pos; // ya es precio por día
 
     // Saldo al cierre del evento anterior.
     // Si había pallets de meses anteriores, los contamos.
@@ -255,7 +255,7 @@ $con_viaje   = $precio_viaje > 0;
 $con_saldo   = $con_pos || $con_viaje;   // columna Saldo acumulado
 $modo_camion = $precio_modo === 'camion';
 // Cantidad de columnas para colspan en filas de totales
-$ncols = 8 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_saldo ? 1 : 0);
+$ncols = 7 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_saldo ? 1 : 0);
 
 $nav_modulo = 'reportes';
 ?>
@@ -310,7 +310,7 @@ $nav_modulo = 'reportes';
 <body>
 <?php require_once __DIR__ . '/../../includes/navbar.php'; ?>
 
-<div class="container-fluid py-3 px-4" style="max-width:1200px">
+<div class="container-fluid py-3 px-4" style="max-width:1400px">
 
     <div class="d-flex align-items-center justify-content-between mb-3 no-print">
         <h5 class="fw-bold mb-0">
@@ -500,8 +500,7 @@ $nav_modulo = 'reportes';
                     <th class="text-end">Pal. entrada</th>
                     <th class="text-end">Pal. salida</th>
                     <?php if ($modo_camion): ?><th class="text-center no-print">Camiones</th><?php endif; ?>
-                    <th class="text-end">Pal. ayer<br><small class="fw-normal opacity-75">base cobro</small></th>
-                    <th class="text-end">Stock hoy<br><small class="fw-normal opacity-75">cierre</small></th>
+                    <th class="text-end">Stock</th>
                     <?php if ($con_pos):   ?><th class="text-end">$ Almacenaje</th><?php endif; ?>
                     <?php if ($con_viaje): ?><th class="text-end"><?= $modo_camion ? '$ / camión' : '$ / pallet' ?></th><?php endif; ?>
                     <?php if ($con_saldo): ?><th class="text-end" style="background:#1a3a2a">Saldo acumulado</th><?php endif; ?>
@@ -567,7 +566,6 @@ $nav_modulo = 'reportes';
                     <?php endif; ?>
                 </td>
                 <?php endif; ?>
-                <td class="text-end col-pos" title="<?= $info['saldo_anterior'] ?> pal × <?= $info['dias_entre'] ?> días"><?= fmtPal($info['saldo_anterior']) ?> × <?= $info['dias_entre'] ?>d</td>
                 <td class="text-end text-muted"><?= fmtPal($info['stock']) ?></td>
                 <?php if ($con_pos): ?>
                 <td class="text-end col-costo">
@@ -689,7 +687,7 @@ $nav_modulo = 'reportes';
                 <?php if ($con_pos): ?>
                 <span class="text-muted small">
                     Almacenaje: <strong><?= number_format($datos['total_posiciones'],1) ?> pal. cobrados</strong>
-                    × <strong>$<?= number_format($precio_pos,2,',','.') ?>/30</strong>
+                    × <strong>$<?= number_format($precio_pos,2,',','.') ?>/día</strong>
                     = <strong class="col-costo"><?= fmtMoney($datos['total_costo_pos']) ?></strong>
                 </span>
                 <?php endif; ?>
