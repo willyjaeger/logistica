@@ -5,12 +5,15 @@ require_login();
 $db  = db();
 $eid = empresa_id();
 
-// ── Guardar camiones (PRG) ────────────────────────────────────
+// ── Guardar camiones + saldo inicial (PRG) ───────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pid_post = (int)($_POST['proveedor_id'] ?? 0);
     if ($pid_post > 0) {
+        $mes_post  = max(1, min(12, (int)($_POST['mes']  ?? date('n'))));
+        $anio_post = max(2020, (int)($_POST['anio'] ?? date('Y')));
         $db->beginTransaction();
         try {
+            // Guardar camiones
             foreach (($_POST['cam'] ?? []) as $fecha_str => $cnt) {
                 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fecha_str)) continue;
                 $cnt = max(0, (int)$cnt);
@@ -24,6 +27,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $db->prepare("DELETE FROM cc_viajes WHERE empresa_id=? AND proveedor_id=? AND fecha=?")
                        ->execute([$eid, $pid_post, $fecha_str]);
                 }
+            }
+            // Guardar saldo inicial (si viene en el POST)
+            if (isset($_POST['saldo_ini'])) {
+                $saldo_ini_post = max(0.0, (float)str_replace(',', '.', $_POST['saldo_ini']));
+                $db->prepare("
+                    INSERT INTO cc_saldo_inicial (empresa_id, proveedor_id, anio, mes, saldo)
+                    VALUES (?,?,?,?,?)
+                    ON DUPLICATE KEY UPDATE saldo = VALUES(saldo)
+                ")->execute([$eid, $pid_post, $anio_post, $mes_post, $saldo_ini_post]);
             }
             $db->commit();
         } catch (Exception $e) {
@@ -60,6 +72,8 @@ foreach ($proveedores as $p) {
 }
 
 // ── Cálculo principal ─────────────────────────────────────────
+$saldo_ini      = 0.0;
+$saldo_ini_auto = 0.0;
 $datos = null;
 if ($proveedor_id > 0) {
     $inicio = sprintf('%04d-%02d-01', $anio, $mes);
@@ -93,6 +107,23 @@ if ($proveedor_id > 0) {
                         WHERE empresa_id=? AND proveedor_id=? AND fecha BETWEEN ? AND ?");
     $tc->execute([$eid, $proveedor_id, $inicio, $fin]);
     $truck_counts = array_column($tc->fetchAll(), 'camiones', 'fecha');
+
+    // ── Saldo inicial ─────────────────────────────────────────
+    // Auto-calculado: pallets que ingresaron antes del mes y no salieron
+    $ayer_ini = (new DateTime($inicio))->modify('-1 day')->format('Y-m-d');
+    foreach ($remitos_periodo as $r) {
+        $pal = (float)$r['total_pallets'];
+        if ($r['fecha_ingreso'] <= $ayer_ini &&
+            ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $ayer_ini)) {
+            $saldo_ini_auto += $pal;
+        }
+    }
+    // Si hay valor guardado en DB, lo usa; si no, usa el auto-calculado
+    $si_q = $db->prepare("SELECT saldo FROM cc_saldo_inicial
+                          WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=?");
+    $si_q->execute([$eid, $proveedor_id, $anio, $mes]);
+    $si_row = $si_q->fetch();
+    $saldo_ini = ($si_row !== false) ? (float)$si_row['saldo'] : $saldo_ini_auto;
 
     // ── Cálculo de posiciones ─────────────────────────────────
     //
@@ -131,18 +162,9 @@ if ($proveedor_id > 0) {
     $saldo_viaje_acum       = 0.0;
     $precio_pos_dia         = $precio_pos; // ya es precio por día
 
-    // Saldo al cierre del evento anterior.
-    // Si había pallets de meses anteriores, los contamos.
-    $saldo_evento_anterior = 0.0;
-    $fecha_evento_anterior = $inicio;  // arrancamos desde el inicio del mes
-    $ayer_inicio = (new DateTime($inicio))->modify('-1 day')->format('Y-m-d');
-    foreach ($remitos_periodo as $r) {
-        $pal = (float)$r['total_pallets'];
-        if ($r['fecha_ingreso'] <= $ayer_inicio &&
-            ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $ayer_inicio)) {
-            $saldo_evento_anterior += $pal;
-        }
-    }
+    // Punto de partida: saldo inicial (guardado en DB o auto-calculado)
+    $saldo_evento_anterior = $saldo_ini;
+    $fecha_evento_anterior = $inicio;
 
     foreach ($eventos_fechas as $d) {
         // Stock al CIERRE de este evento (después de todos los movimientos de hoy)
@@ -305,6 +327,16 @@ $nav_modulo = 'reportes';
                      border:2px solid #f97316; border-radius:6px; padding:2px 4px;
                      font-size:.9rem; background:#fff7ed; }
         .input-cam:focus { outline:none; border-color:#c45200; box-shadow:0 0 0 2px #fde8d0; }
+        /* Alineación tabla: evita wrap en columnas numéricas */
+        #tabla-cc th                { white-space: nowrap; }
+        #tabla-cc td                { white-space: nowrap; }
+        #tabla-cc td:nth-child(3)   { white-space: normal; min-width: 160px; }  /* Concepto */
+        /* Saldo inicial */
+        .saldo-ini-bar { background: #f0f4ff; border-bottom: 1px solid #d0d9f0; }
+        .input-saldo-ini { width:80px; text-align:center; font-weight:700;
+                           border:2px solid #5a29a3; border-radius:6px; padding:2px 6px;
+                           font-size:.9rem; background:#f8f5ff; }
+        .input-saldo-ini:focus { outline:none; border-color:#3d1a7a; box-shadow:0 0 0 2px #e5d9ff; }
     </style>
 </head>
 <body>
@@ -482,12 +514,27 @@ $nav_modulo = 'reportes';
                 <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleTodo()">
                     <i class="bi bi-arrows-expand me-1"></i>Expandir todo
                 </button>
-                <?php if ($modo_camion): ?>
                 <button type="submit" class="btn btn-warning btn-sm">
-                    <i class="bi bi-floppy me-1"></i>Guardar camiones
+                    <i class="bi bi-floppy me-1"></i>Guardar
                 </button>
-                <?php endif; ?>
             </div>
+        </div>
+        <!-- ── Saldo inicial ─────────────────────────────── -->
+        <div class="saldo-ini-bar d-flex align-items-center gap-2 px-3 py-2 no-print">
+            <i class="bi bi-box-seam col-pos"></i>
+            <span class="small fw-semibold text-uppercase" style="color:#5a29a3">Saldo inicial</span>
+            <input type="number" name="saldo_ini" class="input-saldo-ini"
+                   step="0.5" min="0"
+                   value="<?= number_format($saldo_ini, 1, '.', '') ?>"
+                   title="Pallets en depósito al inicio del período">
+            <span class="text-muted small">pallets al 01/<?= $mes ?>/<?= $anio ?></span>
+            <?php if (abs($saldo_ini - $saldo_ini_auto) > 0.01): ?>
+            <span class="badge bg-secondary ms-1" title="Valor que calcula el sistema desde los remitos">
+                Sistema: <?= number_format($saldo_ini_auto, 1) ?>
+            </span>
+            <?php else: ?>
+            <span class="text-muted small ms-1">(calculado automáticamente)</span>
+            <?php endif; ?>
         </div>
         <div class="card-body p-0">
         <div class="table-responsive">
@@ -670,13 +717,11 @@ $nav_modulo = 'reportes';
         </div><!-- card-body -->
     </div><!-- card -->
 
-    <?php if ($modo_camion): ?>
     <div class="d-flex justify-content-end mt-2 no-print">
         <button type="submit" class="btn btn-warning">
-            <i class="bi bi-floppy me-1"></i>Guardar camiones
+            <i class="bi bi-floppy me-1"></i>Guardar
         </button>
     </div>
-    <?php endif; ?>
     </form>
 
     <!-- ── Fórmula al pie ──────────────────────────────────── -->
