@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep *)",
+      "Bash(dir /s /b \"C:\\\\Proyecto\\\\logistica\\\\modules\\\\configuracion\" \"C:\\\\Proyecto\\\\logistica\\\\modules\\\\stock\" \"C:\\\\Proyecto\\\\logistica\\\\modules\\\\reportes\")",
+      "Bash(cat C:/Proyecto/logistica/.github/workflows/*.yml)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}
