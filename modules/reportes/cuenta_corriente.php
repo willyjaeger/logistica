@@ -94,36 +94,20 @@ if ($proveedor_id > 0) {
     $tc->execute([$eid, $proveedor_id, $inicio, $fin]);
     $truck_counts = array_column($tc->fetchAll(), 'camiones', 'fecha');
 
-    // ── Cálculo POR EVENTOS ──────────────────────────────────
+    // ── Cálculo de posiciones ────────────────────────────────
     //
-    // LÓGICA CORRECTA DE POSICIONES:
-    //   El precio_pos es MENSUAL por pallet. Precio diario = precio_pos / 30.
+    // Lógica (igual que el Excel):
+    //   Cada día cerrás con un saldo de pallets.
+    //   Al día SIGUIENTE cobrás: saldo_de_ayer × (precio_mensual / 30)
+    //   Eso se suma a la cuenta corriente una vez por día.
     //
-    //   Cobramos al llegar cada EVENTO (día con movimiento).
-    //   Calculamos cuántos días pasaron desde el evento anterior y
-    //   multiplicamos: saldo_antes × días_transcurridos × (precio_pos / 30)
+    // Recorremos día a día todo el mes. Para cada día:
+    //   - Calculamos el stock al cierre (pallets que están esa noche)
+    //   - Cobramos el stock del día ANTERIOR × precio_dia
     //
-    //   Ejemplo:
-    //     01/04 → ingresan 18 pallets. Saldo = 18. (primer día, cobro = 0)
-    //     10/04 → salen 5. Han pasado 9 días.
-    //             Cobro = 18 × 9 × (precio/30)
-    //     13/04 → lunes, pasaron 3 días (vie+sáb+dom)
-    //             Cobro = 13 × 3 × (precio/30)
-    //
-
-    // Recolectar todos los días con movimientos dentro del período
-    $dias_con_movs = [];
-    foreach ($remitos_periodo as $r) {
-        if ($r['fecha_ingreso'] >= $inicio && $r['fecha_ingreso'] <= $fin)
-            $dias_con_movs[$r['fecha_ingreso']] = true;
-        if ($r['fecha_salida_real'] && $r['fecha_salida_real'] >= $inicio && $r['fecha_salida_real'] <= $fin)
-            $dias_con_movs[$r['fecha_salida_real']] = true;
-    }
-    ksort($dias_con_movs);
-    $fechas_evento = array_keys($dias_con_movs);
 
     $dias                   = [];
-    $total_posiciones       = 0.0;   // acumula pallets×días (pos-día)
+    $total_posiciones       = 0.0;   // suma de stocks diarios cobrados
     $total_pal_viajes       = 0.0;
     $total_camiones         = 0;
     $total_costo_viajes_sum = 0.0;
@@ -131,43 +115,48 @@ if ($proveedor_id > 0) {
     $saldo_viaje_acum       = 0.0;
     $precio_pos_dia         = $precio_pos > 0 ? $precio_pos / 30.0 : 0.0;
 
-    // El "evento anterior" arranca en el inicio del mes
-    $fecha_ant = $inicio;
+    $cursor = new DateTime($inicio);
+    $finDt  = new DateTime($fin);
 
-    foreach ($fechas_evento as $d) {
-        $stock       = 0.0;  // saldo al FINAL del día (tras movimientos de hoy)
-        $saldo_antes = 0.0;  // saldo AL INICIO del día (base del cobro)
-        $pal_sal     = 0.0;
-        $entradas    = [];
-        $salidas     = [];
+    // Stock al cierre del día anterior al período
+    // (pallets que ya estaban antes del mes y siguen adentro)
+    $stock_ayer = 0.0;
+    foreach ($remitos_periodo as $r) {
+        $pal = (float)$r['total_pallets'];
+        $ayer = (new DateTime($inicio))->modify('-1 day')->format('Y-m-d');
+        if ($r['fecha_ingreso'] <= $ayer &&
+            ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $ayer)) {
+            $stock_ayer += $pal;
+        }
+    }
+
+    while ($cursor <= $finDt) {
+        $d       = $cursor->format('Y-m-d');
+        $stock   = 0.0;   // stock al CIERRE de hoy
+        $pal_sal = 0.0;
+        $entradas = [];
+        $salidas  = [];
 
         foreach ($remitos_periodo as $r) {
             $pal = (float)$r['total_pallets'];
 
-            // Saldo fin de día: ingresó hoy o antes, no salió (o sale después de hoy)
+            // Stock al cierre de hoy: ingresó hoy o antes, y no salió (o sale mañana o después)
             if ($r['fecha_ingreso'] <= $d &&
                 ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $d)) {
                 $stock += $pal;
-            }
-
-            // Saldo inicio de día: ingresó ANTES de hoy, no salió (o sale hoy o después)
-            if ($r['fecha_ingreso'] < $d &&
-                ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] >= $d)) {
-                $saldo_antes += $pal;
             }
 
             if ($r['fecha_ingreso'] === $d)     $entradas[] = $r;
             if ($r['fecha_salida_real'] === $d) { $salidas[] = $r; $pal_sal += $pal; }
         }
 
-        // Días transcurridos desde el evento anterior
-        $dias_transcurridos = (int)(new DateTime($d))->diff(new DateTime($fecha_ant))->days;
+        // Solo mostramos días con movimientos
+        $tiene_movs = !empty($entradas) || !empty($salidas);
 
-        // Pallets-día = saldo_antes × días (lo que se cobra en este evento)
-        $pallets_dia = $saldo_antes * $dias_transcurridos;
-
-        $costo_pos_evento = ($precio_pos > 0 && $pallets_dia > 0)
-            ? $pallets_dia * $precio_pos_dia
+        // Cobro del día = stock que cerró AYER × precio_dia
+        // (los pallets que "durmieron" anoche)
+        $costo_pos_hoy = $precio_pos > 0 && $stock_ayer > 0
+            ? $stock_ayer * $precio_pos_dia
             : null;
 
         $camiones_dia = isset($truck_counts[$d]) ? (int)$truck_counts[$d] : 0;
@@ -179,33 +168,35 @@ if ($proveedor_id > 0) {
                 : $pal_sal      * $precio_viaje;
         }
 
-        $saldo_pos_acum   += $costo_pos_evento ?? 0;
-        $saldo_viaje_acum += $costo_viaje      ?? 0;
+        $saldo_pos_acum   += $costo_pos_hoy ?? 0;
+        $saldo_viaje_acum += $costo_viaje   ?? 0;
 
-        $total_posiciones       += $pallets_dia;
-        $total_pal_viajes       += $pal_sal;
-        $total_camiones         += $camiones_dia;
-        $total_costo_viajes_sum += $costo_viaje ?? 0;
+        if ($tiene_movs) {
+            $total_posiciones       += $stock_ayer;
+            $total_pal_viajes       += $pal_sal;
+            $total_camiones         += $camiones_dia;
+            $total_costo_viajes_sum += $costo_viaje ?? 0;
 
-        $saldo_acum = ($precio_pos > 0 || $precio_viaje > 0)
-            ? $saldo_pos_acum + $saldo_viaje_acum
-            : null;
+            $saldo_acum = ($precio_pos > 0 || $precio_viaje > 0)
+                ? $saldo_pos_acum + $saldo_viaje_acum
+                : null;
 
-        $dias[$d] = [
-            'stock'             => $stock,
-            'saldo_antes'       => $saldo_antes,
-            'dias_transcurridos'=> $dias_transcurridos,
-            'pallets_dia'       => $pallets_dia,
-            'entradas'          => $entradas,
-            'salidas'           => $salidas,
-            'pal_sal'           => $pal_sal,
-            'camiones'          => $camiones_dia,
-            'costo_pos'         => $costo_pos_evento,
-            'costo_viaje'       => $costo_viaje,
-            'saldo_acum'        => $saldo_acum,
-        ];
+            $dias[$d] = [
+                'stock'      => $stock,       // cierre de hoy (para mostrar)
+                'stock_ayer' => $stock_ayer,  // lo que se cobró (pallets de ayer)
+                'entradas'   => $entradas,
+                'salidas'    => $salidas,
+                'pal_sal'    => $pal_sal,
+                'camiones'   => $camiones_dia,
+                'costo_pos'  => $costo_pos_hoy,
+                'costo_viaje'=> $costo_viaje,
+                'saldo_acum' => $saldo_acum,
+            ];
+        }
 
-        $fecha_ant = $d;  // este evento pasa a ser el anterior para el próximo
+        // El stock de hoy pasa a ser el "ayer" para mañana
+        $stock_ayer = $stock;
+        $cursor->modify('+1 day');
     }
 
     // Resumen global
@@ -498,8 +489,8 @@ $nav_modulo = 'reportes';
                     <th class="text-end">Pal. entrada</th>
                     <th class="text-end">Pal. salida</th>
                     <?php if ($modo_camion): ?><th class="text-center no-print">Camiones</th><?php endif; ?>
-                    <th class="text-end">Pos-día<br><small class="fw-normal opacity-75">pal × días</small></th>
-                    <th class="text-end">Stock<br><small class="fw-normal opacity-75">fin del día</small></th>
+                    <th class="text-end">Pal. ayer<br><small class="fw-normal opacity-75">base cobro</small></th>
+                    <th class="text-end">Stock hoy<br><small class="fw-normal opacity-75">cierre</small></th>
                     <?php if ($con_pos):   ?><th class="text-end">$ Almacenaje</th><?php endif; ?>
                     <?php if ($con_viaje): ?><th class="text-end"><?= $modo_camion ? '$ / camión' : '$ / pallet' ?></th><?php endif; ?>
                     <?php if ($con_saldo): ?><th class="text-end" style="background:#1a3a2a">Saldo acumulado</th><?php endif; ?>
@@ -565,11 +556,11 @@ $nav_modulo = 'reportes';
                     <?php endif; ?>
                 </td>
                 <?php endif; ?>
-                <td class="text-end col-pos" title="<?= $info['saldo_antes'] ?> pal × <?= $info['dias_transcurridos'] ?> días"><?= fmtPal($info['pallets_dia']) ?><br><small class="text-muted fw-normal" style="font-size:.7rem"><?= $info['saldo_antes'] ?>pal×<?= $info['dias_transcurridos'] ?>d</small></td>
+                <td class="text-end col-pos"><?= fmtPal($info['stock_ayer']) ?></td>
                 <td class="text-end text-muted"><?= fmtPal($info['stock']) ?></td>
                 <?php if ($con_pos): ?>
                 <td class="text-end col-costo">
-                    <?= ($info['pallets_dia'] > 0 && $info['costo_pos'] !== null) ? fmtMoney($info['costo_pos']) : '—' ?>
+                    <?= ($info['costo_pos'] !== null) ? fmtMoney($info['costo_pos']) : '—' ?>
                 </td>
                 <?php endif; ?>
                 <?php if ($con_viaje): ?>
@@ -630,7 +621,7 @@ $nav_modulo = 'reportes';
             <?php if ($con_pos || $con_viaje): ?>
             <tr class="subtotal-row">
                 <td colspan="<?= 7 + ($modo_camion?1:0) + 1 ?>" class="text-end pe-2 text-muted small text-uppercase">Subtotal almacenaje</td>
-                <td class="text-end col-pos"><?= number_format($datos['total_posiciones'],1) ?> pos-día</td>
+                <td class="text-end col-pos"><?= number_format($datos['total_posiciones'],1) ?> pal.</td>
                 <?php if ($con_pos):   ?><td class="text-end col-costo"><?= fmtMoney($datos['total_costo_pos']) ?></td><?php endif; ?>
                 <?php if ($con_viaje): ?><td></td><?php endif; ?>
                 <?php if ($con_saldo): ?><td></td><?php endif; ?>
@@ -686,7 +677,7 @@ $nav_modulo = 'reportes';
             <div class="d-flex flex-wrap gap-3 align-items-center">
                 <?php if ($con_pos): ?>
                 <span class="text-muted small">
-                    Almacenaje: <strong><?= number_format($datos['total_posiciones'],1) ?> pos-día</strong>
+                    Almacenaje: <strong><?= number_format($datos['total_posiciones'],1) ?> pal. cobrados</strong>
                     × <strong>$<?= number_format($precio_pos,2,',','.') ?>/30</strong>
                     = <strong class="col-costo"><?= fmtMoney($datos['total_costo_pos']) ?></strong>
                 </span>
