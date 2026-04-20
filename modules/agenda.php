@@ -365,14 +365,14 @@ $nav_modulo = 'agenda';
             $asignado   = !empty($r['entrega_id']);
             $en_camino  = $r['remito_estado'] === 'en_camino';
 
-            if ($en_camino)        { $est_cls='est-en_camino'; $est_lbl='En camino'; $est_bg='bg-info text-dark'; }
-            elseif ($es_solo)      { $est_cls='est-sin_remito'; $est_lbl='Sin remito'; $est_bg='bg-secondary'; }
-            elseif ($asignado)     { $est_cls='est-asignado'; $est_lbl='Asignado'; $est_bg='bg-warning text-dark'; }
-            else                   { $est_cls='est-no_asignado'; $est_lbl='No asignado'; $est_bg='bg-primary'; }
+            if ($en_camino)        { $est_cls='est-en_camino'; $est_lbl='En camino'; $est_bg='badge-estado-en_camino'; }
+            elseif ($es_solo)      { $est_cls='est-sin_remito'; $est_lbl='Sin remito'; $est_bg='badge-estado-sin_remito'; }
+            elseif ($asignado)     { $est_cls='est-asignado'; $est_lbl='Asignado'; $est_bg='badge-estado-asignado'; }
+            else                   { $est_cls='est-no_asignado'; $est_lbl='No asignado'; $est_bg='badge-estado-no_asignado'; }
 
             // Badge tipo turno
             $tipo_lbl = $r['turno_tipo'] === 'turno' ? 'Turno' : ($r['turno_tipo'] === 'programado' ? 'Prog' : '');
-            $tipo_bg  = $r['turno_tipo'] === 'turno' ? 'bg-primary' : 'bg-success';
+            $tipo_bg  = $r['turno_tipo'] === 'turno' ? 'badge-estado-turnado' : 'badge-estado-programado';
         ?>
         <div class="rem-card <?= $est_cls ?>">
             <div class="rc-top">

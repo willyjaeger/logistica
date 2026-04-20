@@ -74,11 +74,17 @@
 }
 
 /* ── Badges de estado ── */
-.badge-estado-pendiente            { background-color: #fd7e14; }
-.badge-estado-parcialmente_entregado { background-color: #0dcaf0; color: #000; }
-.badge-estado-entregado            { background-color: #198754; }
-.badge-estado-en_stock             { background-color: #6f42c1; }
-.badge-estado-armando              { background-color: #adb5bd; color: #000; }
-.badge-estado-en_camino            { background-color: #f97316; color: #fff; }
-.badge-estado-completada           { background-color: #198754; }
-.badge-estado-con_incidencias      { background-color: #dc3545; }
+.badge-estado-pendiente              { background-color: #6b7280; color: #fff; }
+.badge-estado-turnado                { background-color: #2563eb; color: #fff; }
+.badge-estado-programado             { background-color: #0891b2; color: #fff; }
+.badge-estado-en_camino              { background-color: #f97316; color: #fff; }
+.badge-estado-entregado              { background-color: #16a34a; color: #fff; }
+.badge-estado-parcialmente_entregado { background-color: #0d9488; color: #fff; }
+.badge-estado-en_stock               { background-color: #7c3aed; color: #fff; }
+.badge-estado-armando                { background-color: #d97706; color: #fff; }
+.badge-estado-completada             { background-color: #16a34a; color: #fff; }
+.badge-estado-con_incidencias        { background-color: #dc2626; color: #fff; }
+.badge-estado-cancelado              { background-color: #4b5563; color: #fff; }
+.badge-estado-asignado               { background-color: #2563eb; color: #fff; }
+.badge-estado-no_asignado            { background-color: #9ca3af; color: #fff; }
+.badge-estado-sin_remito             { background-color: #4b5563; color: #fff; }

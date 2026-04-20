@@ -80,13 +80,14 @@ if ($remitos) {
 
 // ── Etiquetas estado ──────────────────��───────────────────────
 $estado_label = [
-    'pendiente'              => ['bg-warning text-dark', 'Pendiente'],
-    'parcialmente_entregado' => ['bg-info text-dark',    'Parcial'],
-    'entregado'              => ['bg-success',           'Entregado'],
-    'en_stock'               => ['bg-secondary',         'En stock'],
-    'turnado'                => ['bg-primary',           'Turnado'],
-    'programado'             => ['bg-info',              'Programado'],
-    'en_camino'              => ['badge-estado-en_camino', 'En camino'],
+    'pendiente'              => ['badge-estado-pendiente',              'Pendiente'],
+    'turnado'                => ['badge-estado-turnado',                'Turnado'],
+    'programado'             => ['badge-estado-programado',             'Programado'],
+    'en_camino'              => ['badge-estado-en_camino',              'En camino'],
+    'entregado'              => ['badge-estado-entregado',              'Entregado'],
+    'parcialmente_entregado' => ['badge-estado-parcialmente_entregado', 'Parcial'],
+    'en_stock'               => ['badge-estado-en_stock',               'En stock'],
+    'cancelado'              => ['badge-estado-cancelado',              'Cancelado'],
 ];
 
 $nav_modulo = 'remitos';

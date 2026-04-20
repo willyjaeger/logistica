@@ -98,12 +98,12 @@ if (isset($_GET['export'])) {
 }
 
 $estado_badge = [
-    'pendiente'       => ['bg-warning text-dark', 'Pendiente'],
-    'armando'         => ['bg-warning text-dark', 'Armando'],
-    'en_camino'       => ['bg-info text-dark',    'En camino'],
-    'completada'      => ['bg-success',           'Completada'],
-    'entregado'       => ['bg-success',            'Entregada'],
-    'con_incidencias' => ['bg-danger',             'Con incidencias'],
+    'pendiente'       => ['badge-estado-pendiente',       'Pendiente'],
+    'armando'         => ['badge-estado-armando',         'Armando'],
+    'en_camino'       => ['badge-estado-en_camino',       'En camino'],
+    'completada'      => ['badge-estado-completada',      'Completada'],
+    'entregado'       => ['badge-estado-entregado',       'Entregada'],
+    'con_incidencias' => ['badge-estado-con_incidencias', 'Con incidencias'],
 ];
 
 $nav_modulo = 'entregas';
