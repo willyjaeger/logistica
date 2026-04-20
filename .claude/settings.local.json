@@ -6,7 +6,9 @@
       "Bash(cat C:/Proyecto/logistica/.github/workflows/*.yml)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(php *)",
+      "Bash(git commit *)"
     ]
   }
 }

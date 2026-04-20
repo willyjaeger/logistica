@@ -122,6 +122,8 @@ $nav_modulo = 'panel';
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <link rel="manifest" href="/ops/manifest.json">
+    <link rel="icon" href="/ops/favicon.ico">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel — <?= APP_NAME ?></title>
