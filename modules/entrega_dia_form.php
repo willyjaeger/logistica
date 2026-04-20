@@ -62,7 +62,10 @@ $disponibles = $db->prepare("
     LEFT JOIN clientes c ON c.id = r.cliente_id
     LEFT JOIN turnos t   ON t.remito_id = r.id AND t.empresa_id = r.empresa_id AND t.fecha = ?
     WHERE r.empresa_id = ?
-      AND r.estado NOT IN ('entregado','en_stock','parcialmente_entregado')
+      AND (
+          r.estado NOT IN ('entregado','en_stock','parcialmente_entregado')
+          OR r.id IN (SELECT remito_id FROM entrega_remitos WHERE entrega_id = ?)
+      )
       AND NOT EXISTS (
           SELECT 1 FROM entrega_remitos er2
           JOIN entregas ex ON ex.id = er2.entrega_id
@@ -78,12 +81,13 @@ $disponibles = $db->prepare("
           OR r.estado = 'pendiente'
       )
     ORDER BY
-        CASE WHEN t.id IS NOT NULL THEN 0
-             WHEN DATE(r.fecha_entrega) = ? THEN 1
-             ELSE 2 END,
+        CASE WHEN r.id IN (SELECT remito_id FROM entrega_remitos WHERE entrega_id = ?) THEN 0
+             WHEN t.id IS NOT NULL THEN 1
+             WHEN DATE(r.fecha_entrega) = ? THEN 2
+             ELSE 3 END,
         c.nombre, r.nro_remito_propio
 ");
-$disponibles->execute([$def_fecha, $eid, $eid, $eid_edit, $eid_edit, $def_fecha, $def_fecha]);
+$disponibles->execute([$def_fecha, $eid, $eid_edit, $eid, $eid_edit, $eid_edit, $def_fecha, $eid_edit, $def_fecha]);
 $remitos_disponibles = $disponibles->fetchAll();
 
 // ── Datos para dropdowns ───────────────────────────────────────
@@ -109,6 +113,60 @@ if ($pre_remito && !in_array($pre_remito, $pre_checked)) $pre_checked[] = $pre_r
 
 $titulo     = $edit_id ? 'Editar salida' : 'Nueva salida';
 $nav_modulo = 'agenda';
+
+function renderCambiarEstado(int $edit_id, array $entrega, string $back): void {
+    $est = $entrega['estado'];
+    $badges = [
+        'armando'        => ['secondary', 'Armando'],
+        'en_camino'      => ['primary',   'En camino'],
+        'completada'     => ['success',   'Completada'],
+        'con_incidencias'=> ['warning',   'Con incidencias'],
+    ];
+    [$badge_color, $badge_label] = $badges[$est] ?? ['secondary', $est];
+    $readonly = in_array($est, ['completada', 'con_incidencias', 'entregado']);
+    ?>
+    <div class="seccion">
+        <div class="seccion-titulo"><i class="bi bi-arrow-repeat me-1"></i>Estado de la salida</div>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <span class="badge bg-<?= $badge_color ?> fs-6 px-3 py-2"><?= $badge_label ?></span>
+            <?php if (!$readonly): ?>
+            <div class="d-flex gap-2 flex-wrap ms-auto">
+                <?php if ($est === 'armando'): ?>
+                <form method="POST" action="<?= url('modules/entrega_confirmar.php') ?>">
+                    <input type="hidden" name="entrega_id" value="<?= $edit_id ?>">
+                    <input type="hidden" name="fecha"      value="<?= h($entrega['fecha']) ?>">
+                    <button type="submit" class="btn btn-primary btn-sm"
+                            onclick="return confirm('¿Confirmar salida? Los remitos pasarán a En camino.')">
+                        <i class="bi bi-truck me-1"></i>Confirmar salida
+                    </button>
+                </form>
+                <?php endif; ?>
+                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
+                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
+                    <input type="hidden" name="nuevo_estado" value="completada">
+                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
+                    <input type="hidden" name="back"         value="<?= h($back) ?>">
+                    <button type="submit" class="btn btn-success btn-sm"
+                            onclick="return confirm('¿Marcar como completada? Los remitos quedarán como entregados.')">
+                        <i class="bi bi-check-circle me-1"></i>Completada
+                    </button>
+                </form>
+                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
+                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
+                    <input type="hidden" name="nuevo_estado" value="con_incidencias">
+                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
+                    <input type="hidden" name="back"         value="<?= h($back) ?>">
+                    <button type="submit" class="btn btn-outline-warning btn-sm"
+                            onclick="return confirm('¿Registrar con incidencias? Los remitos quedarán como entregados.')">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Con incidencias
+                    </button>
+                </form>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php
+}
 
 function fmtDia(string $ymd): string {
     [$y,$m,$d] = explode('-', $ymd);
@@ -157,6 +215,8 @@ function fmtDia(string $ymd): string {
             <span class="fw-normal text-muted fs-6 ms-2"><?= fmtDia($def_fecha) ?></span>
         </h5>
     </div>
+
+    <?php if ($edit_id && $entrega) renderCambiarEstado($edit_id, $entrega, $back); ?>
 
     <form method="POST" action="<?= url('modules/entrega_dia_guardar.php') ?>" id="form-entrega">
         <input type="hidden" name="entrega_id" value="<?= $edit_id ?>">
@@ -263,53 +323,7 @@ function fmtDia(string $ymd): string {
         </div>
     </form>
 
-    <?php if ($edit_id && $entrega):
-        $est = $entrega['estado'];
-        $badges = [
-            'armando'   => ['secondary', 'Armando'],
-            'en_camino' => ['primary',   'En camino'],
-        ];
-        [$badge_color, $badge_label] = $badges[$est] ?? ['secondary', $est];
-    ?>
-    <div class="seccion">
-        <div class="seccion-titulo"><i class="bi bi-arrow-repeat me-1"></i>Cambiar estado</div>
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-            <span class="badge bg-<?= $badge_color ?> fs-6 px-3 py-2"><?= $badge_label ?></span>
-            <div class="d-flex gap-2 flex-wrap ms-auto">
-                <?php if ($est === 'armando'): ?>
-                <form method="POST" action="<?= url('modules/entrega_confirmar.php') ?>">
-                    <input type="hidden" name="entrega_id" value="<?= $edit_id ?>">
-                    <input type="hidden" name="fecha"      value="<?= h($entrega['fecha']) ?>">
-                    <button type="submit" class="btn btn-primary"
-                            onclick="return confirm('¿Confirmar salida? Los remitos pasarán a En camino.')">
-                        <i class="bi bi-truck me-1"></i>Confirmar salida
-                    </button>
-                </form>
-                <?php endif; ?>
-                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
-                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
-                    <input type="hidden" name="nuevo_estado" value="completada">
-                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
-                    <input type="hidden" name="back"         value="<?= h($back) ?>">
-                    <button type="submit" class="btn btn-success"
-                            onclick="return confirm('¿Marcar como completada? Los remitos quedarán como entregados.')">
-                        <i class="bi bi-check-circle me-1"></i>Completada
-                    </button>
-                </form>
-                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
-                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
-                    <input type="hidden" name="nuevo_estado" value="con_incidencias">
-                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
-                    <input type="hidden" name="back"         value="<?= h($back) ?>">
-                    <button type="submit" class="btn btn-outline-warning"
-                            onclick="return confirm('¿Registrar con incidencias? Los remitos quedarán como entregados.')">
-                        <i class="bi bi-exclamation-triangle me-1"></i>Con incidencias
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
+    <?php if ($edit_id && $entrega) renderCambiarEstado($edit_id, $entrega, $back); ?>
 </div>
 
 <!-- Modal nuevo transportista -->
