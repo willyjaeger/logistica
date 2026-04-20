@@ -192,7 +192,7 @@ $nav_modulo = 'agenda';
                     <label class="form-label form-label-sm mb-1">Pallets est.</label>
                     <input type="number" name="pallets_est" step="0.5" min="0"
                            class="form-control form-control-sm"
-                           value="<?= h($turno['pallets_est']??'') ?>"
+                           value="<?= h($turno['pallets_est'] ?? ($remito_actual ? number_format((float)$remito_actual['total_pallets'], 1, '.', '') : '')) ?>"
                            placeholder="0.0"
                            title="Estimación cuando no hay remito">
                 </div>
