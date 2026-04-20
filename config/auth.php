@@ -27,6 +27,19 @@ function require_login(): void
     }
     $_SESSION['ultimo_acceso'] = time();
 
+    // Auto-transición diaria: en_camino → completada/entregado (una vez por día por sesión)
+    $hoy_at = date('Y-m-d');
+    if (($_SESSION['auto_trans_dia'] ?? '') !== $hoy_at) {
+        $_SESSION['auto_trans_dia'] = $hoy_at;
+        $eid_at = (int)($_SESSION['empresa_id'] ?? 0);
+        if ($eid_at > 0) {
+            $dba = db();
+            $dba->prepare("UPDATE entregas SET estado='completada' WHERE empresa_id=? AND estado='en_camino' AND fecha < ?")->execute([$eid_at, $hoy_at]);
+            $dba->prepare("UPDATE remitos  SET estado='entregado'  WHERE empresa_id=? AND estado='en_camino' AND fecha_entrega < ?")->execute([$eid_at, $hoy_at]);
+            $dba->prepare("UPDATE turnos   SET estado='entregado'  WHERE empresa_id=? AND estado='en_camino' AND fecha < ?")->execute([$eid_at, $hoy_at]);
+        }
+    }
+
     // Forzar cambio de clave en primer login
     if (!empty($_SESSION['debe_cambiar_clave'])) {
         $script = $_SERVER['PHP_SELF'] ?? '';

@@ -5,12 +5,6 @@ require_login();
 $db  = db();
 $eid = empresa_id();
 
-// ── Auto-transición: en_camino de ayer → entregado ────────────
-$db->prepare("
-    UPDATE remitos SET estado='entregado'
-    WHERE empresa_id=? AND estado='en_camino' AND fecha_entrega < ?
-")->execute([$eid, date('Y-m-d')]);
-
 // ── Filtros ───────────────────────────────────────────────────
 $q        = trim($_GET['q']        ?? '');
 $estado   = $_GET['estado']        ?? '';

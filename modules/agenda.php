@@ -6,10 +6,14 @@ $db  = db();
 $eid = empresa_id();
 $hoy = date('Y-m-d');
 
-// Auto-transición en_camino → entregado (al día siguiente)
-$db->prepare("UPDATE entregas SET estado='entregado' WHERE empresa_id=? AND estado='en_camino' AND fecha < ?")->execute([$eid, $hoy]);
-$db->prepare("UPDATE remitos  SET estado='entregado' WHERE empresa_id=? AND estado='en_camino' AND fecha_entrega < ?")->execute([$eid, $hoy]);
-$db->prepare("UPDATE turnos   SET estado='entregado' WHERE empresa_id=? AND estado='en_camino' AND fecha < ?")->execute([$eid, $hoy]);
+// ── Reparar remitos con turno activo pero estado='pendiente' ────
+$db->prepare("
+    UPDATE remitos r
+    INNER JOIN turnos t ON t.remito_id = r.id AND t.empresa_id = r.empresa_id
+    SET r.estado = IF(t.tipo = 'turno', 'turnado', 'programado')
+    WHERE r.empresa_id = ? AND r.estado = 'pendiente'
+      AND t.estado = 'pendiente'
+")->execute([$eid]);
 
 // ── Parámetros ──────────────────────────────────────────────────
 $vista    = $_GET['vista']  ?? 'semana';

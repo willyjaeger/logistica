@@ -96,6 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="form-control"
                         placeholder="Tu usuario"
                         value="<?= htmlspecialchars($_POST['usuario'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                        autocomplete="off"
+                        readonly onfocus="this.removeAttribute('readonly')"
                         autofocus
                         required
                     >
@@ -111,6 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         name="password"
                         class="form-control"
                         placeholder="••••••••"
+                        autocomplete="new-password"
+                        readonly onfocus="this.removeAttribute('readonly')"
                         required
                     >
                 </div>

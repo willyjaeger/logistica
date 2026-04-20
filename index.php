@@ -5,12 +5,6 @@ require_login();
 $eid = empresa_id();
 $db  = db();
 
-// ── Auto-transición: en_camino de ayer → entregado ────────────
-$db->prepare("
-    UPDATE remitos SET estado='entregado'
-    WHERE empresa_id=? AND estado='en_camino' AND fecha_entrega < ?
-")->execute([$eid, date('Y-m-d')]);
-
 // ── Stats ─────────────────────────────────────────────────────
 $stmt = $db->prepare("
     SELECT COUNT(*) FROM remitos r
