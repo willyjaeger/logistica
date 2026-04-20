@@ -30,11 +30,11 @@ if ($edit_id > 0) {
         LEFT JOIN transportistas tr  ON tr.id = e.transportista_id
         LEFT JOIN camiones       cam ON cam.id= e.camion_id
         LEFT JOIN choferes       ch  ON ch.id = e.chofer_id
-        WHERE e.id=? AND e.empresa_id=? AND e.estado NOT IN ('completada','entregado','con_incidencias')
+        WHERE e.id=? AND e.empresa_id=?
     ");
     $st->execute([$edit_id, $eid]);
     $entrega = $st->fetch();
-    if (!$entrega) { header('Location: ' . url('modules/agenda.php')); exit; }
+    if (!$entrega) { header('Location: ' . $back_url); exit; }
 
     $def_fecha = $entrega['fecha'];
     $st2 = $db->prepare("SELECT remito_id FROM entrega_remitos WHERE entrega_id=?");
