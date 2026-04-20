@@ -129,12 +129,17 @@ function renderCambiarEstado(int $edit_id, array $entrega, string $back): void {
         <div class="seccion-titulo"><i class="bi bi-arrow-repeat me-1"></i>Estado de la salida</div>
         <div class="d-flex align-items-center gap-3 flex-wrap">
             <span class="badge bg-<?= $badge_color ?> fs-6 px-3 py-2"><?= $badge_label ?></span>
-            <?php if (!$readonly): ?>
-            <div class="d-flex gap-2 flex-wrap ms-auto">
+            <a href="<?= url('modules/entrega_hoja_ruta.php') ?>?id=<?= $edit_id ?>&back=<?= urlencode($back) ?>"
+       class="btn btn-outline-secondary btn-sm ms-auto" target="_blank">
+        <i class="bi bi-printer me-1"></i>Hoja de ruta
+    </a>
+    <?php if (!$readonly): ?>
+            <div class="d-flex gap-2 flex-wrap">
                 <?php if ($est === 'armando'): ?>
                 <form method="POST" action="<?= url('modules/entrega_confirmar.php') ?>">
                     <input type="hidden" name="entrega_id" value="<?= $edit_id ?>">
                     <input type="hidden" name="fecha"      value="<?= h($entrega['fecha']) ?>">
+                    <input type="hidden" name="back"       value="<?= h($back) ?>">
                     <button type="submit" class="btn btn-primary btn-sm"
                             onclick="return confirm('¿Confirmar salida? Los remitos pasarán a En camino.')">
                         <i class="bi bi-truck me-1"></i>Confirmar salida

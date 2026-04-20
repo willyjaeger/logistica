@@ -11,6 +11,7 @@ $db         = db();
 $eid        = empresa_id();
 $entrega_id = (int)($_POST['entrega_id'] ?? 0);
 $fecha      = $_POST['fecha'] ?? date('Y-m-d');
+$back       = in_array($_POST['back'] ?? '', ['lista','agenda']) ? $_POST['back'] : 'agenda';
 
 if (!$entrega_id) {
     header('Location: ' . url('modules/agenda.php') . '?fecha=' . urlencode($fecha));
@@ -49,5 +50,5 @@ try {
     error_log('entrega_confirmar: ' . $e->getMessage());
 }
 
-header('Location: ' . url('modules/agenda.php') . '?fecha=' . urlencode($entrega['fecha']));
+header('Location: ' . url('modules/entrega_hoja_ruta.php') . '?id=' . $entrega_id . '&back=' . urlencode($back) . '&print=1');
 exit;
