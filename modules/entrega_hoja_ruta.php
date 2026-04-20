@@ -74,6 +74,7 @@ function fmtFecha(string $ymd): string {
     <title>Hoja de ruta #<?= $entrega_id ?> — <?= APP_NAME ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
     <style>
         @page { margin: 1.2cm 1.4cm; }
 

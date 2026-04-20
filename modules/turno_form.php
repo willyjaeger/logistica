@@ -79,6 +79,7 @@ $nav_modulo = 'agenda';
     <title><?= $id ? 'Editar' : 'Nuevo' ?> turno — <?= APP_NAME ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
     <style>
         body { background: #eef1f6; }
         .seccion { background:#fff; border-left:4px solid #6366f1; border-radius:.5rem; padding:1rem 1.25rem; margin-bottom:1rem; box-shadow:0 2px 8px rgba(0,0,0,.08); }
