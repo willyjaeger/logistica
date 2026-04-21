@@ -356,6 +356,28 @@ $nav_modulo = 'remitos';
                               placeholder="Notas adicionales sobre el remito..."><?= $form_post ? vp('observaciones') : h($remito['observaciones'] ?? '') ?></textarea>
                 </div>
             </div>
+            <div class="row g-2 mt-2">
+                <div class="col-12">
+                    <?php
+                    $ef_val = $form_post
+                        ? !empty($form_post['entrega_fisica'])
+                        : (isset($remito['entrega_fisica']) ? (bool)$remito['entrega_fisica'] : true);
+                    ?>
+                    <div class="d-flex align-items-center gap-2 p-2 rounded"
+                         style="background:<?= $ef_val ? '#f0fdf4' : '#fff7ed' ?>;border:1px solid <?= $ef_val ? '#bbf7d0' : '#fed7aa' ?>">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" role="switch"
+                                   name="entrega_fisica" id="chk_ef" value="1"
+                                   <?= $ef_val ? 'checked' : '' ?>>
+                        </div>
+                        <label for="chk_ef" class="mb-0" style="cursor:pointer">
+                            <span id="ef_label" class="fw-semibold small">
+                                <?= $ef_val ? '📦 Entrega física — Sanesa trae la mercadería' : '📄 Remito virtual — usa stock existente' ?>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ─── SECCIÓN: TURNO DE ENTREGA ──────────────────────── -->
@@ -1162,6 +1184,25 @@ document.getElementById('btn_guardar_cliente').addEventListener('click', functio
     const observer = new MutationObserver(filtrarTurnos);
     observer.observe(cliIdInput, { attributes: true, attributeFilter: ['value'] });
     filtrarTurnos();
+})();
+
+// ── Entrega física: actualizar visual del switch ──────────────
+(function() {
+    const chk   = document.getElementById('chk_ef');
+    const lbl   = document.getElementById('ef_label');
+    const wrap  = chk.closest('.d-flex');
+    function actualizarEF() {
+        if (chk.checked) {
+            lbl.textContent  = '📦 Entrega física — Sanesa trae la mercadería';
+            wrap.style.background = '#f0fdf4';
+            wrap.style.border     = '1px solid #bbf7d0';
+        } else {
+            lbl.textContent  = '📄 Remito virtual — usa stock existente';
+            wrap.style.background = '#fff7ed';
+            wrap.style.border     = '1px solid #fed7aa';
+        }
+    }
+    chk.addEventListener('change', actualizarEF);
 })();
 </script>
 </body>

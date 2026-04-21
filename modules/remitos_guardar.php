@@ -27,6 +27,7 @@ $fecha_remito  = $_POST['fecha_remito'] ?? date('Y-m-d');
 $nro_oc        = trim($_POST['nro_oc'] ?? '');
 $observaciones = trim($_POST['observaciones'] ?? '');
 $total_pallets = (float)str_replace(',', '.', $_POST['total_pallets'] ?? '0');
+$entrega_fisica = isset($_POST['entrega_fisica']) ? 1 : 0; // checkbox: 1=física, 0=virtual
 
 // ── Validación básica ─────────────────────────────────────────
 $errores = [];
@@ -98,11 +99,11 @@ if ($remito_id > 0) {
     $db->prepare("
         UPDATE remitos
         SET nro_remito_propio = ?, proveedor_id = ?, cliente_id = ?,
-            fecha_remito = ?, nro_oc = ?, observaciones = ?, total_pallets = ?
+            fecha_remito = ?, nro_oc = ?, observaciones = ?, total_pallets = ?, entrega_fisica = ?
         WHERE id = ? AND empresa_id = ?
     ")->execute([
         $nro_remito, $proveedor_id, $cliente_id,
-        $fecha_remito, $nro_oc ?: null, $observaciones ?: null, $total_pallets,
+        $fecha_remito, $nro_oc ?: null, $observaciones ?: null, $total_pallets, $entrega_fisica,
         $remito_id, $eid
     ]);
 
@@ -114,11 +115,11 @@ if ($remito_id > 0) {
     $db->prepare("
         INSERT INTO remitos
             (ingreso_id, empresa_id, nro_remito_propio, proveedor_id, cliente_id,
-             fecha_remito, estado, nro_oc, observaciones, total_pallets)
-        VALUES (?,?,?,?,?,?,?,?,?,?)
+             fecha_remito, estado, nro_oc, observaciones, total_pallets, entrega_fisica)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)
     ")->execute([
         $ingreso_id, $eid, $nro_remito, $proveedor_id, $cliente_id,
-        $fecha_remito, 'pendiente', $nro_oc ?: null, $observaciones ?: null, $total_pallets
+        $fecha_remito, 'pendiente', $nro_oc ?: null, $observaciones ?: null, $total_pallets, $entrega_fisica
     ]);
     $remito_id = (int)$db->lastInsertId();
 }
@@ -202,6 +203,45 @@ if ($turno_id_post === 'nuevo' && $nuevo_turno_fecha !== '') {
        ->execute([$turno_previo_id, $eid]);
     $db->prepare("UPDATE remitos SET estado='pendiente', fecha_entrega=NULL WHERE id=? AND empresa_id=?")
        ->execute([$remito_id, $eid]);
+}
+
+// ── Stock: generar movimiento de ingreso (solo si entrega física) ─
+// Eliminar ingreso previo para este remito (re-guardar limpia y recrea)
+$db->prepare("DELETE FROM stock_movimientos WHERE remito_id = ? AND empresa_id = ? AND tipo = 'ingreso_remito'")
+   ->execute([$remito_id, $eid]);
+
+if ($entrega_fisica) {
+    $si = $db->prepare("
+        SELECT ri.articulo_id, COALESCE(a.descripcion, ri.descripcion) AS descripcion, ri.cantidad
+        FROM remito_items ri
+        LEFT JOIN articulos a ON a.id = ri.articulo_id
+        WHERE ri.remito_id = ? AND ri.articulo_id IS NOT NULL AND ri.cantidad > 0
+    ");
+    $si->execute([$remito_id]);
+    $stock_items = $si->fetchAll();
+
+    if ($stock_items) {
+        $uid_stock = $_SESSION['usuario_id'];
+        $obs_stock = 'Remito ' . $nro_remito;
+        $ins = $db->prepare("
+            INSERT INTO stock_movimientos
+                (empresa_id, lote_id, fecha, tipo, articulo_id, descripcion, cantidad, remito_id, observaciones, usuario_id)
+            VALUES (?, NULL, ?, 'ingreso_remito', ?, ?, ?, ?, ?, ?)
+        ");
+        $ins->execute([$eid, $fecha_remito, $stock_items[0]['articulo_id'],
+            $stock_items[0]['descripcion'], $stock_items[0]['cantidad'],
+            $remito_id, $obs_stock, $uid_stock]);
+        $lote_stock = (int)$db->lastInsertId();
+        $db->prepare("UPDATE stock_movimientos SET lote_id = ? WHERE id = ?")->execute([$lote_stock, $lote_stock]);
+
+        for ($i = 1; $i < count($stock_items); $i++) {
+            $ins->execute([$eid, $fecha_remito, $stock_items[$i]['articulo_id'],
+                $stock_items[$i]['descripcion'], $stock_items[$i]['cantidad'],
+                $remito_id, $obs_stock, $uid_stock]);
+            $new_id = (int)$db->lastInsertId();
+            $db->prepare("UPDATE stock_movimientos SET lote_id = ? WHERE id = ?")->execute([$lote_stock, $new_id]);
+        }
+    }
 }
 
 // ── Redirección ───────────────────────────────────────────────
