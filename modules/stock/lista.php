@@ -66,15 +66,50 @@ $nav_modulo = 'stock';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
+    <style>
+        @page { margin: 1.2cm 1.5cm; }
+        @media print {
+            body { background: #fff !important; font-size: .78rem; }
+            .no-print { display: none !important; }
+            .card { box-shadow: none !important; border: none !important; }
+            .print-header { display: block !important; }
+            .table { font-size: .76rem; }
+            .table th, .table td { padding: .22rem .4rem !important; }
+            a { color: inherit !important; text-decoration: none !important; }
+        }
+        .print-header { display: none; border-bottom: 3px solid #1a3a6b;
+                        padding-bottom: .5rem; margin-bottom: .8rem; }
+        .print-title  { font-size: 1.3rem; font-weight: 800; color: #1a3a6b; }
+        .print-sub    { font-size: .82rem; color: #6b7280; }
+    </style>
 </head>
 <body class="bg-light">
 <?php include __DIR__ . '/../../includes/navbar.php'; ?>
 
 <div class="container-fluid py-3">
 
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+<!-- Cabecera solo para impresión -->
+<div class="print-header">
+    <div class="d-flex justify-content-between align-items-end">
+        <div>
+            <div class="print-title"><?= h(empresa_nombre()) ?> — Stock actual</div>
+            <?php if ($filtro_prov): ?>
+            <div class="print-sub">Proveedor: <?= h($proveedores[array_search($filtro_prov, array_column($proveedores,'id'))]['nombre'] ?? '') ?></div>
+            <?php endif; ?>
+        </div>
+        <div class="print-sub text-end">
+            Emitido: <?= date('d/m/Y H:i') ?><br>
+            <?= number_format($total_bultos,0,',','.') ?> bultos · <?= number_format($total_pallets,2,',','.') ?> pallets
+        </div>
+    </div>
+</div>
+
+<div class="d-flex align-items-center gap-2 mb-3 flex-wrap no-print">
     <h5 class="mb-0 fw-bold"><i class="bi bi-archive me-2 text-primary"></i>Stock actual</h5>
     <div class="ms-auto d-flex gap-2 flex-wrap">
+        <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-printer me-1"></i>Imprimir / PDF
+        </button>
         <a href="<?= url('modules/stock/movimientos.php') ?>" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-clock-history me-1"></i>Historial
         </a>
@@ -95,7 +130,7 @@ $nav_modulo = 'stock';
 <?php endif; ?>
 
 <!-- Filtros -->
-<form method="GET" class="card border-0 shadow-sm p-3 mb-3">
+<form method="GET" class="card border-0 shadow-sm p-3 mb-3 no-print">
     <div class="row g-2 align-items-end">
         <div class="col-sm-4 col-md-3">
             <label class="form-label form-label-sm mb-1">Proveedor</label>
@@ -124,7 +159,7 @@ $nav_modulo = 'stock';
 </form>
 
 <!-- Totales -->
-<div class="row g-2 mb-3">
+<div class="row g-2 mb-3 no-print">
     <div class="col-sm-6 col-md-3">
         <div class="card border-0 shadow-sm text-center py-2">
             <div class="stat-numero text-primary"><?= number_format($total_bultos, 0, ',', '.') ?></div>

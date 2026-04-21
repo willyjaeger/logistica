@@ -65,13 +65,50 @@ $nav_modulo = 'stock';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
+    <style>
+        @page { margin: 1.2cm 1.5cm; }
+        @media print {
+            body { background: #fff !important; font-size: .76rem; }
+            .no-print { display: none !important; }
+            .card { box-shadow: none !important; border: none !important; }
+            .print-header { display: block !important; }
+            .table { font-size: .74rem; }
+            .table th, .table td { padding: .2rem .35rem !important; }
+            a { color: inherit !important; text-decoration: none !important; }
+            .badge { border: 1px solid #ccc; }
+        }
+        .print-header { display: none; border-bottom: 3px solid #1a3a6b;
+                        padding-bottom: .5rem; margin-bottom: .8rem; }
+        .print-title  { font-size: 1.2rem; font-weight: 800; color: #1a3a6b; }
+        .print-sub    { font-size: .8rem; color: #6b7280; }
+    </style>
 </head>
 <body class="bg-light">
 <?php include __DIR__ . '/../../includes/navbar.php'; ?>
 
 <div class="container-fluid py-3">
 
-<div class="d-flex align-items-center gap-2 mb-3">
+<!-- Cabecera solo para impresión -->
+<?php
+$tipo_nombre_imp = $filtro_tipo ? ($tipo_labels[$filtro_tipo][0] ?? $filtro_tipo) : 'Todos los tipos';
+$rango_imp = $filtro_desde || $filtro_hasta
+    ? trim(($filtro_desde ? date('d/m/Y', strtotime($filtro_desde)) : '') . ' al ' . ($filtro_hasta ? date('d/m/Y', strtotime($filtro_hasta)) : 'hoy'))
+    : 'Todos los períodos';
+?>
+<div class="print-header">
+    <div class="d-flex justify-content-between align-items-end">
+        <div>
+            <div class="print-title"><?= h(empresa_nombre()) ?> — Movimientos de stock</div>
+            <div class="print-sub">
+                <?= $art_nombre ? 'Artículo: ' . h($art_nombre) . ' · ' : '' ?>
+                Tipo: <?= h($tipo_nombre_imp) ?> · <?= h($rango_imp) ?>
+            </div>
+        </div>
+        <div class="print-sub text-end">Emitido: <?= date('d/m/Y H:i') ?></div>
+    </div>
+</div>
+
+<div class="d-flex align-items-center gap-2 mb-3 no-print">
     <a href="<?= url('modules/stock/lista.php') ?>" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Stock
     </a>
@@ -81,14 +118,19 @@ $nav_modulo = 'stock';
         <small class="text-muted fw-normal">— <?= h($art_nombre) ?></small>
         <?php endif; ?>
     </h5>
-    <a href="<?= url('modules/stock/movimiento_form.php' . ($filtro_art ? '?articulo_id='.$filtro_art : '')) ?>"
-       class="btn btn-sm btn-primary ms-auto">
-        <i class="bi bi-plus-lg me-1"></i>Nuevo movimiento
-    </a>
+    <div class="ms-auto d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-printer me-1"></i>Imprimir / PDF
+        </button>
+        <a href="<?= url('modules/stock/movimiento_form.php' . ($filtro_art ? '?articulo_id='.$filtro_art : '')) ?>"
+           class="btn btn-sm btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo movimiento
+        </a>
+    </div>
 </div>
 
 <!-- Filtros -->
-<form method="GET" class="card border-0 shadow-sm p-3 mb-3">
+<form method="GET" class="card border-0 shadow-sm p-3 mb-3 no-print">
     <input type="hidden" name="articulo_id" value="<?= $filtro_art ?: '' ?>">
     <div class="row g-2 align-items-end">
         <div class="col-sm-3 col-md-2">
