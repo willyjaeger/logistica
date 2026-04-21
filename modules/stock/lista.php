@@ -25,13 +25,12 @@ $stmt = $db->prepare("
             ) THEN m.cantidad ELSE -m.cantidad END
         ), 0) AS bultos_stock
     FROM articulos a
-    LEFT JOIN stock_movimientos m
-           ON m.articulo_id = a.id AND m.empresa_id = ?
-    WHERE a.empresa_id = ? AND a.activo = 1
+    LEFT JOIN stock_movimientos m ON m.articulo_id = a.id AND m.empresa_id = ?
+    WHERE a.activo = 1
     GROUP BY a.id
     ORDER BY a.descripcion, a.presentacion
 ");
-$stmt->execute([$eid, $eid]);
+$stmt->execute([$eid]);
 $articulos = $stmt->fetchAll();
 
 $total_bultos  = array_sum(array_column($articulos, 'bultos_stock'));
