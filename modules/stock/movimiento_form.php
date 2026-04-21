@@ -155,8 +155,7 @@ $titulo = $tipo_pre === 'carga_inicial' ? 'Carga inicial de stock' : 'Registrar 
     </button>
 </div>
 
-<div class="table-responsive">
-<table class="table table-sm items-table align-middle" id="tbl-items">
+<table class="table table-sm items-table align-middle" id="tbl-items" style="overflow:visible">
     <thead class="table-light">
         <tr>
             <th>Artículo</th>
@@ -167,7 +166,6 @@ $titulo = $tipo_pre === 'carga_inicial' ? 'Carga inicial de stock' : 'Registrar 
     </thead>
     <tbody id="tbody"></tbody>
 </table>
-</div>
 
 <div class="d-flex justify-content-end gap-2 mt-3">
     <a href="<?= url('modules/stock/lista.php') ?>" class="btn btn-outline-secondary">Cancelar</a>
