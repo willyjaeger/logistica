@@ -5,19 +5,28 @@ require_login();
 $db  = db();
 $eid = empresa_id();
 
-// ── Tipos que suman / restan ──────────────────────────────────
-function es_entrada(string $tipo): bool {
-    return in_array($tipo, [
-        'carga_inicial','ingreso_remito','ingreso_devolucion',
-        'ingreso_expreso','ingreso_stock_seg','ajuste_positivo',
-    ]);
-}
+$filtro_prov    = (int)($_GET['proveedor_id'] ?? 0);
+$filtro_solo_stock = isset($_GET['solo_stock']); // mostrar solo artículos con stock > 0
+
+// ── Proveedores para el filtro ────────────────────────────────
+$sp = $db->prepare("SELECT id, nombre FROM proveedores WHERE empresa_id = ? AND activo = 1 ORDER BY nombre");
+$sp->execute([$eid]);
+$proveedores = $sp->fetchAll();
 
 // ── Stock actual por artículo ─────────────────────────────────
+$where_art = ['a.activo = 1'];
+$params    = [$eid];
+
+if ($filtro_prov) {
+    $where_art[] = 'a.proveedor_id = ?';
+    $params[]    = $filtro_prov;
+}
+
 $stmt = $db->prepare("
     SELECT
         a.id, a.codigo, a.descripcion, a.presentacion,
-        a.bultos_por_pallet,
+        a.bultos_por_pallet, a.proveedor_id,
+        p.nombre AS proveedor_nombre,
         COALESCE(SUM(
             CASE WHEN m.tipo IN (
                 'carga_inicial','ingreso_remito','ingreso_devolucion',
@@ -25,13 +34,19 @@ $stmt = $db->prepare("
             ) THEN m.cantidad ELSE -m.cantidad END
         ), 0) AS bultos_stock
     FROM articulos a
+    LEFT JOIN proveedores p ON p.id = a.proveedor_id
     LEFT JOIN stock_movimientos m ON m.articulo_id = a.id AND m.empresa_id = ?
-    WHERE a.activo = 1
+    WHERE " . implode(' AND ', $where_art) . "
     GROUP BY a.id
-    ORDER BY a.descripcion, a.presentacion
+    ORDER BY p.nombre, a.descripcion, a.presentacion
 ");
-$stmt->execute([$eid]);
-$articulos = $stmt->fetchAll();
+$stmt->execute($params);
+$articulos_all = $stmt->fetchAll();
+
+// Filtro solo con stock
+$articulos = $filtro_solo_stock
+    ? array_filter($articulos_all, fn($a) => (float)$a['bultos_stock'] > 0)
+    : $articulos_all;
 
 $total_bultos  = array_sum(array_column($articulos, 'bultos_stock'));
 $total_pallets = 0;
@@ -79,18 +94,47 @@ $nav_modulo = 'stock';
 </div>
 <?php endif; ?>
 
+<!-- Filtros -->
+<form method="GET" class="card border-0 shadow-sm p-3 mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-sm-4 col-md-3">
+            <label class="form-label form-label-sm mb-1">Proveedor</label>
+            <select name="proveedor_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Todos los proveedores</option>
+                <?php foreach ($proveedores as $p): ?>
+                <option value="<?= $p['id'] ?>" <?= $filtro_prov === (int)$p['id'] ? 'selected' : '' ?>>
+                    <?= h($p['nombre']) ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="col-auto">
+            <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" name="solo_stock" id="chk_solo"
+                       value="1" <?= $filtro_solo_stock ? 'checked' : '' ?> onchange="this.form.submit()">
+                <label class="form-check-label small" for="chk_solo">Solo artículos con stock</label>
+            </div>
+        </div>
+        <?php if ($filtro_prov || $filtro_solo_stock): ?>
+        <div class="col-auto">
+            <a href="<?= url('modules/stock/lista.php') ?>" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+        </div>
+        <?php endif; ?>
+    </div>
+</form>
+
 <!-- Totales -->
 <div class="row g-2 mb-3">
     <div class="col-sm-6 col-md-3">
         <div class="card border-0 shadow-sm text-center py-2">
             <div class="stat-numero text-primary"><?= number_format($total_bultos, 0, ',', '.') ?></div>
-            <div class="stat-label text-muted">Bultos en stock</div>
+            <div class="stat-label text-muted">Bultos en stock<?= $filtro_prov ? ' (filtrado)' : '' ?></div>
         </div>
     </div>
     <div class="col-sm-6 col-md-3">
         <div class="card border-0 shadow-sm text-center py-2">
             <div class="stat-numero text-success"><?= number_format($total_pallets, 1, ',', '.') ?></div>
-            <div class="stat-label text-muted">Pallets equiv.</div>
+            <div class="stat-label text-muted">Pallets equiv.<?= $filtro_prov ? ' (filtrado)' : '' ?></div>
         </div>
     </div>
 </div>
@@ -104,6 +148,7 @@ $nav_modulo = 'stock';
             <th>Código</th>
             <th>Descripción</th>
             <th>Presentación</th>
+            <?php if (!$filtro_prov): ?><th>Proveedor</th><?php endif; ?>
             <th class="text-end">Bultos</th>
             <th class="text-end">Pallets</th>
             <th class="text-end" style="width:110px"></th>
@@ -119,6 +164,9 @@ $nav_modulo = 'stock';
         <td class="font-monospace small fw-semibold"><?= h($a['codigo']) ?></td>
         <td><?= h($a['descripcion']) ?></td>
         <td class="small text-muted"><?= h($a['presentacion']) ?></td>
+        <?php if (!$filtro_prov): ?>
+        <td class="small text-muted"><?= h($a['proveedor_nombre'] ?? '—') ?></td>
+        <?php endif; ?>
         <td class="text-end fw-bold"><?= number_format($bultos, 0, ',', '.') ?></td>
         <td class="text-end" style="color:#7c3aed; font-weight:600">
             <?= $pallets != 0 ? number_format($pallets, 2, ',', '.') : '—' ?>
@@ -136,12 +184,12 @@ $nav_modulo = 'stock';
     </tr>
     <?php endforeach; ?>
     <?php if (!$articulos): ?>
-    <tr><td colspan="6" class="text-center text-muted py-4">Sin artículos en catálogo.</td></tr>
+    <tr><td colspan="7" class="text-center text-muted py-4">Sin artículos<?= $filtro_solo_stock ? ' con stock' : '' ?>.</td></tr>
     <?php endif; ?>
     </tbody>
     <tfoot class="table-light fw-bold">
         <tr>
-            <td colspan="3" class="text-end">TOTAL</td>
+            <td colspan="<?= $filtro_prov ? 3 : 4 ?>" class="text-end">TOTAL</td>
             <td class="text-end"><?= number_format($total_bultos, 0, ',', '.') ?></td>
             <td class="text-end" style="color:#7c3aed"><?= number_format($total_pallets, 2, ',', '.') ?></td>
             <td></td>
@@ -151,7 +199,7 @@ $nav_modulo = 'stock';
 </div>
 </div>
 
-</div><!-- /container -->
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
