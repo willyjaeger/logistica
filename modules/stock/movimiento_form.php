@@ -10,8 +10,8 @@ $articulo_pre = (int)($_GET['articulo_id'] ?? 0);
 
 $art_pre = null;
 if ($articulo_pre) {
-    $s = $db->prepare("SELECT id, codigo, descripcion, presentacion, bultos_por_pallet FROM articulos WHERE id = ? AND empresa_id = ?");
-    $s->execute([$articulo_pre, $eid]);
+    $s = $db->prepare("SELECT id, codigo, descripcion, presentacion, bultos_por_pallet FROM articulos WHERE id = ?");
+    $s->execute([$articulo_pre]);
     $art_pre = $s->fetch();
 }
 
