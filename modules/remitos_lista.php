@@ -11,6 +11,21 @@ $estado   = $_GET['estado']        ?? '';
 $desde    = $_GET['desde']         ?? '';
 $hasta    = $_GET['hasta']         ?? '';
 
+// ── Ordenamiento ──────────────────────────────────────────────
+$sort_allowed = [
+    'fecha_ingreso' => 'i.fecha_ingreso',
+    'nro_remito'    => 'r.nro_remito_propio',
+    'cliente'       => 'c.nombre',
+    'proveedor'     => 'p.nombre',
+    'estado'        => 'r.estado',
+    'pallets'       => 'r.total_pallets',
+    'fecha_entrega' => 'r.fecha_entrega',
+];
+$sort     = isset($_GET['sort'], $sort_allowed[$_GET['sort']]) ? $_GET['sort'] : 'fecha_ingreso';
+$dir      = ($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+$sort_col = $sort_allowed[$sort];
+$dir_sql  = $dir === 'asc' ? 'ASC' : 'DESC';
+
 // ── Construir query ───────────────────────────────────────────
 $where  = ['r.empresa_id = ?'];
 $params = [$eid];
@@ -54,7 +69,7 @@ $sql = "
         GROUP BY er.remito_id
     ) ef ON ef.remito_id = r.id
     WHERE " . implode(' AND ', $where) . "
-    ORDER BY i.fecha_ingreso DESC, r.id DESC
+    ORDER BY {$sort_col} {$dir_sql}, r.id DESC
     LIMIT 100
 ";
 $stmt = $db->prepare($sql);
@@ -89,6 +104,23 @@ $estado_label = [
     'en_stock'               => ['badge-estado-en_stock',               'En stock'],
     'cancelado'              => ['badge-estado-cancelado',              'Cancelado'],
 ];
+
+// ── Helpers de ordenamiento ───────────────────────────────────
+$_filters = compact('q', 'estado', 'desde', 'hasta');
+function sort_url(string $col, string $sort, string $dir, array $f): string {
+    $new_dir = ($sort === $col && $dir === 'desc') ? 'asc' : 'desc';
+    $p = ['sort' => $col, 'dir' => $new_dir];
+    foreach (['q', 'estado', 'desde', 'hasta'] as $k) {
+        if ($f[$k] !== '') $p[$k] = $f[$k];
+    }
+    return url('modules/remitos_lista.php') . '?' . http_build_query($p);
+}
+function sort_icon(string $col, string $sort, string $dir): string {
+    if ($sort !== $col)
+        return '<i class="bi bi-arrow-down-up opacity-25 ms-1" style="font-size:.7rem"></i>';
+    $arrow = $dir === 'asc' ? 'up' : 'down';
+    return '<i class="bi bi-arrow-' . $arrow . ' ms-1 text-warning" style="font-size:.7rem"></i>';
+}
 
 $nav_modulo = 'remitos';
 ?>
@@ -138,6 +170,14 @@ $nav_modulo = 'remitos';
 
         /* Tarjeta sin sombra suave */
         .card { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,.10) !important; }
+
+        /* Headers ordenables */
+        #tabla-remitos thead th a {
+            color: #fff;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        #tabla-remitos thead th a:hover { color: #aed6f1; }
     </style>
 </head>
 <body>
@@ -219,13 +259,13 @@ $nav_modulo = 'remitos';
                     <thead class="table-light small text-muted">
                         <tr>
                             <th style="width:28px"></th>
-                            <th>Fecha ingreso</th>
-                            <th>Nro remito</th>
-                            <th>Cliente</th>
-                            <th>Proveedor</th>
-                            <th class="text-center">Pallets</th>
-                            <th>Estado</th>
-                            <th>F. programada</th>
+                            <th><a href="<?= sort_url('fecha_ingreso', $sort, $dir, $_filters) ?>">Fecha ingreso<?= sort_icon('fecha_ingreso', $sort, $dir) ?></a></th>
+                            <th><a href="<?= sort_url('nro_remito',    $sort, $dir, $_filters) ?>">Nro remito<?= sort_icon('nro_remito',    $sort, $dir) ?></a></th>
+                            <th><a href="<?= sort_url('cliente',       $sort, $dir, $_filters) ?>">Cliente<?= sort_icon('cliente',       $sort, $dir) ?></a></th>
+                            <th><a href="<?= sort_url('proveedor',     $sort, $dir, $_filters) ?>">Proveedor<?= sort_icon('proveedor',     $sort, $dir) ?></a></th>
+                            <th class="text-center"><a href="<?= sort_url('pallets', $sort, $dir, $_filters) ?>">Pallets<?= sort_icon('pallets', $sort, $dir) ?></a></th>
+                            <th><a href="<?= sort_url('estado',        $sort, $dir, $_filters) ?>">Estado<?= sort_icon('estado',        $sort, $dir) ?></a></th>
+                            <th><a href="<?= sort_url('fecha_entrega', $sort, $dir, $_filters) ?>">F. programada<?= sort_icon('fecha_entrega', $sort, $dir) ?></a></th>
                             <th>F. efectiva</th>
                             <th></th>
                         </tr>
