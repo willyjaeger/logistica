@@ -36,43 +36,53 @@ try {
     // MODO A: Edición de entrega existente
     // ──────────────────────────────────────────────────────────────
     if ($entrega_id_edit > 0) {
-        $st = $db->prepare("SELECT id FROM entregas WHERE id=? AND empresa_id=? AND estado NOT IN ('completada','entregado','con_incidencias')");
+        $st = $db->prepare("SELECT id, estado FROM entregas WHERE id=? AND empresa_id=?");
         $st->execute([$entrega_id_edit, $eid]);
-        if (!$st->fetch()) { $db->rollBack(); redir($fecha); }
+        $ent_row = $st->fetch();
+        if (!$ent_row) { $db->rollBack(); redir($fecha); }
 
-        // Actualizar datos de la entrega
-        $db->prepare("UPDATE entregas SET fecha=?, transportista_id=?, camion_id=?, chofer_id=?
+        $completada = in_array($ent_row['estado'], ['completada', 'entregado', 'con_incidencias']);
+
+        // Actualizar siempre: fecha, fecha_salida (usada por CC) y transporte
+        $db->prepare("UPDATE entregas SET fecha=?, fecha_salida=?, transportista_id=?, camion_id=?, chofer_id=?
                        WHERE id=? AND empresa_id=?")
-           ->execute([$fecha, $trans_id, $camion_id, $chofer_id, $entrega_id_edit, $eid]);
+           ->execute([$fecha, $fecha . ' 00:00:00', $trans_id, $camion_id, $chofer_id, $entrega_id_edit, $eid]);
 
-        // Remitos actuales
+        // Remitos actuales vinculados
         $st2 = $db->prepare("SELECT remito_id FROM entrega_remitos WHERE entrega_id=?");
         $st2->execute([$entrega_id_edit]);
         $actuales = array_column($st2->fetchAll(), 'remito_id');
 
-        // Quitar los que se desmarcaron
-        foreach ($actuales as $rid) {
-            if (!in_array($rid, $remito_ids)) {
-                $db->prepare("DELETE FROM entrega_remitos WHERE entrega_id=? AND remito_id=?")
-                   ->execute([$entrega_id_edit, $rid]);
-                $st3 = $db->prepare("SELECT tipo FROM turnos WHERE remito_id=? AND empresa_id=?");
-                $st3->execute([$rid, $eid]);
-                $tur = $st3->fetch();
-                $est = ($tur && $tur['tipo'] === 'turno') ? 'turnado' : 'pendiente';
-                $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=NULL WHERE id=? AND empresa_id=?")
-                   ->execute([$est, $rid, $eid]);
-            }
-        }
-        // Agregar los nuevos / sincronizar fecha en los que se mantienen
-        foreach ($remito_ids as $rid) {
-            if (!in_array($rid, $actuales)) {
-                $db->prepare("INSERT IGNORE INTO entrega_remitos (entrega_id, remito_id) VALUES (?,?)")
-                   ->execute([$entrega_id_edit, $rid]);
-                $db->prepare("UPDATE remitos SET estado='programado', fecha_entrega=? WHERE id=? AND empresa_id=?")
-                   ->execute([$fecha, $rid, $eid]);
-            } else {
+        if ($completada) {
+            // Entrega ya cerrada: solo propagar la nueva fecha a los remitos vinculados
+            foreach ($actuales as $rid) {
                 $db->prepare("UPDATE remitos SET fecha_entrega=? WHERE id=? AND empresa_id=?")
                    ->execute([$fecha, $rid, $eid]);
+            }
+        } else {
+            // Entrega activa: gestionar altas/bajas de remitos normalmente
+            foreach ($actuales as $rid) {
+                if (!in_array($rid, $remito_ids)) {
+                    $db->prepare("DELETE FROM entrega_remitos WHERE entrega_id=? AND remito_id=?")
+                       ->execute([$entrega_id_edit, $rid]);
+                    $st3 = $db->prepare("SELECT tipo FROM turnos WHERE remito_id=? AND empresa_id=?");
+                    $st3->execute([$rid, $eid]);
+                    $tur = $st3->fetch();
+                    $est = ($tur && $tur['tipo'] === 'turno') ? 'turnado' : 'pendiente';
+                    $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=NULL WHERE id=? AND empresa_id=?")
+                       ->execute([$est, $rid, $eid]);
+                }
+            }
+            foreach ($remito_ids as $rid) {
+                if (!in_array($rid, $actuales)) {
+                    $db->prepare("INSERT IGNORE INTO entrega_remitos (entrega_id, remito_id) VALUES (?,?)")
+                       ->execute([$entrega_id_edit, $rid]);
+                    $db->prepare("UPDATE remitos SET estado='programado', fecha_entrega=? WHERE id=? AND empresa_id=?")
+                       ->execute([$fecha, $rid, $eid]);
+                } else {
+                    $db->prepare("UPDATE remitos SET fecha_entrega=? WHERE id=? AND empresa_id=?")
+                       ->execute([$fecha, $rid, $eid]);
+                }
             }
         }
 
