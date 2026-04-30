@@ -63,12 +63,15 @@ try {
                    ->execute([$est, $rid, $eid]);
             }
         }
-        // Agregar los nuevos
+        // Agregar los nuevos / sincronizar fecha en los que se mantienen
         foreach ($remito_ids as $rid) {
             if (!in_array($rid, $actuales)) {
                 $db->prepare("INSERT IGNORE INTO entrega_remitos (entrega_id, remito_id) VALUES (?,?)")
                    ->execute([$entrega_id_edit, $rid]);
                 $db->prepare("UPDATE remitos SET estado='programado', fecha_entrega=? WHERE id=? AND empresa_id=?")
+                   ->execute([$fecha, $rid, $eid]);
+            } else {
+                $db->prepare("UPDATE remitos SET fecha_entrega=? WHERE id=? AND empresa_id=?")
                    ->execute([$fecha, $rid, $eid]);
             }
         }
