@@ -58,6 +58,7 @@ try {
             JOIN remitos r ON r.id = ri.remito_id
             LEFT JOIN articulos a ON a.id = ri.articulo_id
             WHERE ri.remito_id IN ($in) AND ri.articulo_id IS NOT NULL AND ri.cantidad > 0
+              AND r.entrega_fisica = 1
         ");
         $sir->execute($remito_ids);
         $sitems = $sir->fetchAll();
