@@ -84,7 +84,7 @@ if ($proveedor_id > 0) {
     $fin    = date('Y-m-t', strtotime($inicio));
 
     $stmt = $db->prepare("
-        SELECT r.id, r.nro_remito_propio, r.total_pallets,
+        SELECT r.id, r.nro_remito_propio, r.total_pallets, r.entrega_fisica,
                c.nombre              AS cliente,
                DATE(i.fecha_ingreso) AS fecha_ingreso,
                ef.fecha_salida_real
@@ -100,7 +100,6 @@ if ($proveedor_id > 0) {
         ) ef ON ef.remito_id = r.id
         WHERE r.empresa_id   = ?
           AND r.proveedor_id = ?
-          AND r.entrega_fisica = 1
           AND DATE(i.fecha_ingreso) <= ?
           AND (ef.fecha_salida_real IS NULL OR ef.fecha_salida_real >= ?)
         ORDER BY DATE(i.fecha_ingreso), r.id
@@ -191,7 +190,7 @@ if ($proveedor_id > 0) {
                 ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $d)) {
                 $stock += $pal;
             }
-            if ($r['fecha_ingreso'] === $d)     $entradas[] = $r;
+            if ($r['fecha_ingreso'] === $d && $r['entrega_fisica'])  $entradas[] = $r;
             if ($r['fecha_salida_real'] === $d) { $salidas[] = $r; $pal_sal += $pal; }
         }
 
@@ -253,7 +252,7 @@ if ($proveedor_id > 0) {
     $stock_actual    = 0.0;
     foreach ($remitos_periodo as $r) {
         $pal = (float)$r['total_pallets'];
-        if ($r['fecha_ingreso'] >= $inicio && $r['fecha_ingreso'] <= $fin) $total_ingresado += $pal;
+        if ($r['entrega_fisica'] && $r['fecha_ingreso'] >= $inicio && $r['fecha_ingreso'] <= $fin) $total_ingresado += $pal;
         if ($r['fecha_salida_real'] !== null
             && $r['fecha_salida_real'] >= $inicio
             && $r['fecha_salida_real'] <= $fin)                             $total_salido    += $pal;
