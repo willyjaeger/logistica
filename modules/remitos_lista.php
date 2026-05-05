@@ -76,6 +76,11 @@ $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $remitos = $stmt->fetchAll();
 
+// Query string con los filtros activos, para preservarlos al volver del formulario
+$filtros_activos = array_filter(['q' => $q, 'estado' => $estado, 'desde' => $desde, 'hasta' => $hasta,
+    'sort' => $sort !== 'fecha_ingreso' ? $sort : '', 'dir' => $dir !== 'desc' ? $dir : '']);
+$back_qs = $filtros_activos ? http_build_query($filtros_activos) : '';
+
 // ── Cargar ítems de los remitos visibles ──────────────────────
 $items_map = [];
 if ($remitos) {
@@ -329,7 +334,7 @@ $nav_modulo = 'remitos';
                                 <i class="bi bi-truck"></i>
                             </a>
                             <?php endif; ?>
-                            <a href="<?= url("modules/remitos_form.php?id={$r['id']}") ?>"
+                            <a href="<?= url("modules/remitos_form.php?id={$r['id']}") . ($back_qs ? '&back=' . urlencode($back_qs) : '') ?>"
                                class="btn btn-sm btn-outline-primary" title="Editar">
                                 <i class="bi bi-pencil"></i>
                             </a>

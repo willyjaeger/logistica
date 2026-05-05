@@ -28,19 +28,30 @@ $nro_oc        = trim($_POST['nro_oc'] ?? '');
 $observaciones = trim($_POST['observaciones'] ?? '');
 $total_pallets = (float)str_replace(',', '.', $_POST['total_pallets'] ?? '0');
 $entrega_fisica = isset($_POST['entrega_fisica']) ? 1 : 0; // checkbox: 1=física, 0=virtual
+$back           = trim($_POST['back'] ?? '');
 
 // ── Validación básica ─────────────────────────────────────────
 $errores = [];
 if ($cliente_id <= 0)  $errores[] = 'Seleccioná un cliente.';
 if ($nro_num === '00000000') $errores[] = 'Ingresá el número de remito.';
 
+if (!$errores) {
+    // Verificar que no exista otro remito con el mismo número en esta empresa
+    $dup_check = $db->prepare("SELECT id FROM remitos WHERE empresa_id = ? AND nro_remito_propio = ? AND id != ?");
+    $dup_check->execute([$eid, $nro_remito, $remito_id]);
+    if ($dup_check->fetch()) {
+        $errores[] = "Ya existe un remito con el número $nro_remito. No se puede cargar el mismo remito dos veces.";
+    }
+}
+
 if ($errores) {
     $_SESSION['form_error'] = implode(' ', $errores);
     $_SESSION['form_post']  = $_POST;
-    $back = $remito_id > 0
-        ? url("modules/remitos_form.php?id=$remito_id")
-        : url('modules/remitos_form.php');
-    header('Location: ' . $back);
+    $back_param = $back ? '&back=' . urlencode($back) : '';
+    $form_url   = $remito_id > 0
+        ? url("modules/remitos_form.php?id=$remito_id") . $back_param
+        : url('modules/remitos_form.php') . ($back ? '?back=' . urlencode($back) : '');
+    header('Location: ' . $form_url);
     exit;
 }
 
@@ -249,6 +260,7 @@ $accion = $_POST['accion'] ?? 'guardar';
 if ($accion === 'guardar_y_otro') {
     header('Location: ' . url('modules/remitos_form.php') . '?ok=1');
 } else {
-    header('Location: ' . url('modules/remitos_lista.php') . '?ok=1');
+    $lista_url = url('modules/remitos_lista.php') . '?ok=1' . ($back ? '&' . $back : '');
+    header('Location: ' . $lista_url);
 }
 exit;

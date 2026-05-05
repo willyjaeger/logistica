@@ -7,6 +7,7 @@ $eid = empresa_id();
 
 // ── Modo edición ──────────────────────────────────────────────
 $edit_id = (int)($_GET['id'] ?? 0);
+$back    = $_GET['back'] ?? '';
 $remito  = null;
 $ingreso = null;
 $edit_items = [];
@@ -246,6 +247,7 @@ $nav_modulo = 'remitos';
 
     <form id="form-remito" method="POST" action="<?= url('modules/remitos_guardar.php') ?>">
         <input type="hidden" name="remito_id" value="<?= $edit_id ?>">
+        <input type="hidden" name="back" value="<?= h($back) ?>">
         <!-- total_pallets se sincroniza desde el input de la barra -->
         <input type="hidden" name="total_pallets" id="total_pallets_hidden"
                value="<?= $edit_id > 0 ? h($remito['total_pallets'] ?? '0') : '0' ?>">
