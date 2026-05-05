@@ -460,11 +460,12 @@ $nav_modulo = 'reportes';
             <?php if ($con_pos):   ?> &nbsp;·&nbsp; Almacenaje $<?= number_format($precio_pos,2,',','.') ?>/pos.<?php endif; ?>
             <?php if ($con_viaje): ?> &nbsp;·&nbsp; Distrib. $<?= number_format($precio_viaje,2,',','.') ?>/<?= $modo_camion ? 'cam.' : 'pal.' ?><?php endif; ?>
         </div>
-        <hr>
+        <h5 class="fw-bold mt-3 mb-1">Detalle de movimientos</h5>
+        <hr class="mt-1">
     </div>
 
-    <!-- ── Tarjetas resumen ────────────────────────────────── -->
-    <div class="row g-3 mb-4">
+    <!-- ── Tarjetas resumen (solo pantalla) ──────────────── -->
+    <div class="row g-3 mb-4 no-print">
         <div class="col-6 col-md-2">
             <div class="card h-100"><div class="card-body text-center py-3">
                 <div class="text-muted small text-uppercase fw-semibold mb-1">Ingresados</div>
