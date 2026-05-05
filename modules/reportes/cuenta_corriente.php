@@ -113,11 +113,12 @@ if ($proveedor_id > 0) {
     $truck_counts = array_column($tc->fetchAll(), 'camiones', 'fecha');
 
     // ── Saldo inicial ─────────────────────────────────────────
-    // Auto-calculado: pallets que ingresaron antes del mes y no salieron
+    // Auto-calculado: pallets que ingresaron antes del mes y no salieron (solo físicos)
     $ayer_ini = (new DateTime($inicio))->modify('-1 day')->format('Y-m-d');
     foreach ($remitos_periodo as $r) {
         $pal = (float)$r['total_pallets'];
-        if ($r['fecha_ingreso'] <= $ayer_ini &&
+        if ($r['entrega_fisica'] &&
+            $r['fecha_ingreso'] <= $ayer_ini &&
             ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $ayer_ini)) {
             $saldo_ini_auto += $pal;
         }
@@ -186,7 +187,8 @@ if ($proveedor_id > 0) {
 
         foreach ($remitos_periodo as $r) {
             $pal = (float)$r['total_pallets'];
-            if ($r['fecha_ingreso'] <= $d &&
+            if ($r['entrega_fisica'] &&
+                $r['fecha_ingreso'] <= $d &&
                 ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $d)) {
                 $stock += $pal;
             }
@@ -256,7 +258,7 @@ if ($proveedor_id > 0) {
         if ($r['fecha_salida_real'] !== null
             && $r['fecha_salida_real'] >= $inicio
             && $r['fecha_salida_real'] <= $fin)                             $total_salido    += $pal;
-        if ($r['fecha_salida_real'] === null)                               $stock_actual    += $pal;
+        if ($r['entrega_fisica'] && $r['fecha_salida_real'] === null)         $stock_actual    += $pal;
     }
     $stock_actual = max(0.0, $stock_actual + $delta_ini); // sumar pallets manuales del saldo ini
 
