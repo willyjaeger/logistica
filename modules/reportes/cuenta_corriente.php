@@ -149,9 +149,10 @@ if ($proveedor_id > 0) {
     //
 
     // 1. Armar lista de eventos (días con movimiento) dentro del período
+    // Los ingresos virtuales no generan evento (no cambian el stock)
     $eventos_fechas = [];
     foreach ($remitos_periodo as $r) {
-        if ($r['fecha_ingreso'] >= $inicio && $r['fecha_ingreso'] <= $fin)
+        if ($r['entrega_fisica'] && $r['fecha_ingreso'] >= $inicio && $r['fecha_ingreso'] <= $fin)
             $eventos_fechas[$r['fecha_ingreso']] = true;
         if ($r['fecha_salida_real'] !== null
             && $r['fecha_salida_real'] >= $inicio
@@ -190,7 +191,11 @@ if ($proveedor_id > 0) {
             if ($r['entrega_fisica'] &&
                 $r['fecha_ingreso'] <= $d &&
                 ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $d)) {
-                $stock += $pal;
+                $stock += $pal;   // ingreso físico que no salió aún
+            } elseif (!$r['entrega_fisica'] &&
+                      $r['fecha_salida_real'] !== null &&
+                      $r['fecha_salida_real'] <= $d) {
+                $stock -= $pal;   // egreso de remito virtual: resta del stock físico existente
             }
             if ($r['fecha_ingreso'] === $d && $r['entrega_fisica'])  $entradas[] = $r;
             if ($r['fecha_salida_real'] === $d) { $salidas[] = $r; $pal_sal += $pal; }
@@ -258,7 +263,8 @@ if ($proveedor_id > 0) {
         if ($r['fecha_salida_real'] !== null
             && $r['fecha_salida_real'] >= $inicio
             && $r['fecha_salida_real'] <= $fin)                             $total_salido    += $pal;
-        if ($r['entrega_fisica'] && $r['fecha_salida_real'] === null)         $stock_actual    += $pal;
+        if ($r['entrega_fisica'] && $r['fecha_salida_real'] === null)  $stock_actual += $pal;
+        if (!$r['entrega_fisica'] && $r['fecha_salida_real'] !== null) $stock_actual -= $pal;
     }
     $stock_actual = max(0.0, $stock_actual + $delta_ini); // sumar pallets manuales del saldo ini
 
