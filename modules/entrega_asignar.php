@@ -40,7 +40,7 @@ if ($accion === 'quitar') {
            ->execute([$entrega_id, $remito_id]);
 
         // Si tiene turno → estado turnado; si no → pendiente
-        $st3 = $db->prepare("SELECT id FROM turnos WHERE remito_id=? AND empresa_id=? LIMIT 1");
+        $st3 = $db->prepare("SELECT id FROM turnos WHERE remito_id=? AND empresa_id=? AND estado='pendiente' LIMIT 1");
         $st3->execute([$remito_id, $eid]);
         $nuevo_estado = $st3->fetch() ? 'turnado' : 'pendiente';
 

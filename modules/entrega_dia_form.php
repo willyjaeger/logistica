@@ -78,7 +78,7 @@ $disponibles = $db->prepare("
           r.id IN (SELECT remito_id FROM entrega_remitos WHERE entrega_id = ?)
           OR t.id IS NOT NULL
           OR DATE(r.fecha_entrega) = ?
-          OR r.estado = 'pendiente'
+          OR r.estado IN ('pendiente', 'turnado')
       )
     ORDER BY
         CASE WHEN r.id IN (SELECT remito_id FROM entrega_remitos WHERE entrega_id = ?) THEN 0

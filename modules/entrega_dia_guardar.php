@@ -65,7 +65,7 @@ try {
                 if (!in_array($rid, $remito_ids)) {
                     $db->prepare("DELETE FROM entrega_remitos WHERE entrega_id=? AND remito_id=?")
                        ->execute([$entrega_id_edit, $rid]);
-                    $st3 = $db->prepare("SELECT tipo FROM turnos WHERE remito_id=? AND empresa_id=?");
+                    $st3 = $db->prepare("SELECT tipo FROM turnos WHERE remito_id=? AND empresa_id=? AND estado='pendiente'");
                     $st3->execute([$rid, $eid]);
                     $tur = $st3->fetch();
                     $est = ($tur && $tur['tipo'] === 'turno') ? 'turnado' : 'pendiente';
