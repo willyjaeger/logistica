@@ -316,9 +316,18 @@ $nav_modulo = 'reportes';
     <style>
         body { background: #eef1f6; }
         @media print {
-            body { background: #fff; }
+            body { background: #fff; font-size: 11pt; }
             .no-print, .row-detail { display: none !important; }
             .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+            /* Tabla profesional de impresión */
+            .print-doc { display: block !important; }
+            .pt-logo-mark { color: #1a56b0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .pt-thead-row th { background: #1a2a3a !important; color: #fff !important;
+                               -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .pt-day-row td { background: #f0f0f0 !important; font-weight: 700;
+                             -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .pt-total-row td { background: #1a2a3a !important; color: #fff !important; font-weight: 700;
+                               -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         .card { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,.10) !important; }
         #tabla-cc thead th {
@@ -453,16 +462,184 @@ $nav_modulo = 'reportes';
     <?php if ($datos): ?>
 
     <!-- ── Encabezado impresión ────────────────────────────── -->
-    <div class="d-none d-print-block mb-3">
-        <h4 class="fw-bold mb-0"><?= APP_NAME ?> — Cuenta corriente</h4>
-        <div class="text-muted fs-6">
-            <?= h($prov_nombre) ?> &nbsp;·&nbsp; <?= $meses[$mes] ?> <?= $anio ?>
-            <?php if ($con_pos):   ?> &nbsp;·&nbsp; Almacenaje $<?= number_format($precio_pos,2,',','.') ?>/pos.<?php endif; ?>
-            <?php if ($con_viaje): ?> &nbsp;·&nbsp; Distrib. $<?= number_format($precio_viaje,2,',','.') ?>/<?= $modo_camion ? 'cam.' : 'pal.' ?><?php endif; ?>
+    <!-- ══════════════════════════════════════════════════════════
+         IMPRESIÓN PROFESIONAL — solo visible al imprimir
+         ══════════════════════════════════════════════════════════ -->
+    <?php if ($datos && !empty($datos['remitos_periodo'])): ?>
+    <div class="print-doc" style="display:none; font-family:'Segoe UI',Arial,sans-serif; font-size:9.5pt; color:#111;">
+
+        <!-- Encabezado del documento -->
+        <table style="width:100%; border-bottom:2.5pt solid #111; padding-bottom:8pt; margin-bottom:10pt;">
+            <tr>
+                <td style="vertical-align:middle; width:60%;">
+                    <div style="display:flex; align-items:center; gap:10pt;">
+                        <img src="<?= url('assets/img/icon-192.png') ?>" style="height:44pt; width:44pt; border-radius:6pt;">
+                        <div>
+                            <div class="pt-logo-mark" style="font-size:20pt; font-weight:900; letter-spacing:-0.5pt; line-height:1;">Logax</div>
+                            <div style="font-size:7.5pt; color:#555; text-transform:uppercase; letter-spacing:1pt;">Sistema de logística</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="vertical-align:top; text-align:right;">
+                    <div style="font-size:11pt; font-weight:700;"><?= h($prov_nombre) ?></div>
+                    <div style="font-size:9pt; color:#444;"><?= $meses[$mes] ?> <?= $anio ?></div>
+                    <?php if ($con_pos): ?>
+                    <div style="font-size:8pt; color:#555;">Almacenaje: $<?= number_format($precio_pos,2,',','.') ?>/pos·día</div>
+                    <?php endif; ?>
+                    <?php if ($con_viaje): ?>
+                    <div style="font-size:8pt; color:#555;">Distribución: $<?= number_format($precio_viaje,2,',','.') ?>/<?= $modo_camion ? 'camión' : 'pallet' ?></div>
+                    <?php endif; ?>
+                    <div style="font-size:7.5pt; color:#888; margin-top:2pt;">Emitido <?= date('d/m/Y H:i') ?></div>
+                </td>
+            </tr>
+        </table>
+
+        <div style="font-size:11pt; font-weight:700; text-transform:uppercase; letter-spacing:.5pt; margin-bottom:6pt;">Detalle de movimientos</div>
+
+        <!-- Tabla de movimientos -->
+        <?php
+        // Columnas dinámicas
+        $pt_cols = 7; // fecha, tipo, remito, cliente, entrada, salida, stock
+        if ($con_pos)   $pt_cols++;
+        if ($con_viaje) $pt_cols++;
+        if ($con_saldo) $pt_cols++;
+        ?>
+        <table style="width:100%; border-collapse:collapse; font-size:8.5pt;">
+            <thead>
+                <tr class="pt-thead-row">
+                    <th style="padding:4pt 5pt; text-align:left; white-space:nowrap;">Fecha</th>
+                    <th style="padding:4pt 5pt; text-align:left;">Tipo</th>
+                    <th style="padding:4pt 5pt; text-align:left;">Remito</th>
+                    <th style="padding:4pt 5pt; text-align:left;">Cliente</th>
+                    <th style="padding:4pt 5pt; text-align:right;">Pal. entrada</th>
+                    <th style="padding:4pt 5pt; text-align:right;">Pal. salida</th>
+                    <th style="padding:4pt 5pt; text-align:right;">Stock</th>
+                    <?php if ($con_pos):   ?><th style="padding:4pt 5pt; text-align:right;">$ Almacenaje</th><?php endif; ?>
+                    <?php if ($con_viaje): ?><th style="padding:4pt 5pt; text-align:right;">$ Distribución</th><?php endif; ?>
+                    <?php if ($con_saldo): ?><th style="padding:4pt 5pt; text-align:right;">Saldo acum.</th><?php endif; ?>
+                </tr>
+            </thead>
+            <tbody>
+            <?php
+            $pt_row_alt = false;
+            foreach ($datos['dias'] as $dia => $info):
+                $tiene_entradas = !empty($info['entradas']);
+                $tiene_salidas  = !empty($info['salidas']);
+                if (!$tiene_entradas && !$tiene_salidas) continue;
+
+                // Armar lista de movimientos del día: primero entradas, luego salidas
+                $pt_movs = [];
+                foreach ($info['entradas'] as $r) $pt_movs[] = ['tipo' => 'ingreso', 'r' => $r];
+                foreach ($info['salidas']  as $r) $pt_movs[] = ['tipo' => 'salida',  'r' => $r];
+                $pt_last = count($pt_movs) - 1;
+
+                // Fila separadora de día
+                $sem_pt = diaSemana($dia);
+                [$y,$m_n,$d_n] = explode('-', $dia);
+                $label_dia = "$sem_pt $d_n/$m_n/$y";
+                $info_dia  = $info['saldo_anterior'] > 0
+                    ? number_format($info['saldo_anterior'],1).' pal. × '.$info['dias_entre'].' días'
+                    : '';
+            ?>
+                <tr class="pt-day-row">
+                    <td colspan="<?= $pt_cols ?>" style="padding:3pt 5pt; font-size:8pt; border-top:1pt solid #ccc;">
+                        <?= $label_dia ?>
+                        <?php if ($info_dia): ?>
+                        <span style="font-weight:400; color:#555; margin-left:8pt;"><?= $info_dia ?></span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+
+                <?php foreach ($pt_movs as $pt_idx => $mov):
+                    $r        = $mov['r'];
+                    $es_ing   = $mov['tipo'] === 'ingreso';
+                    $pal      = (float)$r['total_pallets'];
+                    $es_last  = ($pt_idx === $pt_last);
+                    $bg_row   = $pt_row_alt ? '#f9f9f9' : '#fff';
+                    $pt_row_alt = !$pt_row_alt;
+                ?>
+                <tr style="background:<?= $bg_row ?>; border-bottom:.5pt solid #e0e0e0;">
+                    <td style="padding:3pt 5pt; color:#666; font-size:8pt; white-space:nowrap;"><?= "$d_n/$m_n/$y" ?></td>
+                    <td style="padding:3pt 5pt; white-space:nowrap;">
+                        <?php if ($es_ing): ?>
+                        <span style="font-weight:600;">↑ Ingreso</span>
+                        <?php else: ?>
+                        <span>↓ Salida</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="padding:3pt 5pt; font-family:monospace; font-size:8pt;"><?= h($r['nro_remito_propio']) ?></td>
+                    <td style="padding:3pt 5pt;"><?= h($r['cliente']) ?></td>
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:<?= $es_ing ? '700' : '400' ?>;">
+                        <?= $es_ing ? '+'.fmtPal($pal) : '—' ?>
+                    </td>
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:<?= !$es_ing ? '700' : '400' ?>;">
+                        <?= !$es_ing ? '−'.fmtPal($pal) : '—' ?>
+                    </td>
+                    <!-- Stock y billing solo en la última fila del día -->
+                    <?php if ($es_last): ?>
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:700;"><?= fmtPal($info['stock']) ?></td>
+                    <?php if ($con_pos): ?>
+                    <td style="padding:3pt 5pt; text-align:right;">
+                        <?= ($info['costo_pos'] !== null && $info['costo_pos'] > 0) ? fmtMoney($info['costo_pos']) : '—' ?>
+                    </td>
+                    <?php endif; ?>
+                    <?php if ($con_viaje): ?>
+                    <td style="padding:3pt 5pt; text-align:right;">
+                        <?= ($info['costo_viaje'] !== null && $info['costo_viaje'] > 0) ? fmtMoney($info['costo_viaje']) : '—' ?>
+                    </td>
+                    <?php endif; ?>
+                    <?php if ($con_saldo): ?>
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:700;">
+                        <?= ($info['saldo_acum'] !== null && $info['saldo_acum'] > 0) ? fmtMoney($info['saldo_acum']) : '—' ?>
+                    </td>
+                    <?php endif; ?>
+                    <?php else: ?>
+                    <td style="padding:3pt 5pt;"></td>
+                    <?php if ($con_pos):   ?><td style="padding:3pt 5pt;"></td><?php endif; ?>
+                    <?php if ($con_viaje): ?><td style="padding:3pt 5pt;"></td><?php endif; ?>
+                    <?php if ($con_saldo): ?><td style="padding:3pt 5pt;"></td><?php endif; ?>
+                    <?php endif; ?>
+                </tr>
+                <?php endforeach; // movimientos del día ?>
+            <?php endforeach; // días ?>
+            </tbody>
+            <tfoot>
+                <tr class="pt-total-row">
+                    <td colspan="4" style="padding:5pt 5pt; text-align:right; font-size:9pt;">
+                        TOTAL <?= strtoupper($meses[$mes]) ?> <?= $anio ?>
+                    </td>
+                    <td style="padding:5pt 5pt; text-align:right;">+<?= fmtPal($datos['total_ingresado']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right;">−<?= fmtPal($datos['total_salido']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtPal($datos['stock_actual']) ?></td>
+                    <?php if ($con_pos): ?>
+                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtMoney($datos['total_costo_pos']) ?></td>
+                    <?php endif; ?>
+                    <?php if ($con_viaje): ?>
+                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtMoney($datos['total_costo_viajes']) ?></td>
+                    <?php endif; ?>
+                    <?php if ($con_saldo): ?>
+                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtMoney($datos['total_general']) ?></td>
+                    <?php endif; ?>
+                </tr>
+            </tfoot>
+        </table>
+
+        <?php if ($con_pos || $con_viaje): ?>
+        <div style="margin-top:10pt; padding-top:6pt; border-top:1pt solid #ccc; font-size:8pt; color:#555;">
+            <?php if ($con_pos): ?>
+            Almacenaje: <?= number_format($datos['total_posiciones'],1) ?> posiciones × $<?= number_format($precio_pos,2,',','.') ?>/día = <strong><?= fmtMoney($datos['total_costo_pos']) ?></strong>
+            <?php endif; ?>
+            <?php if ($con_pos && $con_viaje): ?>&nbsp;&nbsp;+&nbsp;&nbsp;<?php endif; ?>
+            <?php if ($con_viaje): ?>
+            Distribución: <?= $modo_camion ? $datos['total_camiones'].' camiones' : fmtPal($datos['total_pal_viajes']).' pal.' ?> × $<?= number_format($precio_viaje,2,',','.') ?>/<?= $modo_camion ? 'camión' : 'pallet' ?> = <strong><?= fmtMoney($datos['total_costo_viajes']) ?></strong>
+            <?php endif; ?>
+            &nbsp;&nbsp;&nbsp;
+            <strong style="font-size:9.5pt;">Total a cobrar: <?= fmtMoney($datos['total_general']) ?></strong>
         </div>
-        <h5 class="fw-bold mt-3 mb-1">Detalle de movimientos</h5>
-        <hr class="mt-1">
+        <?php endif; ?>
+
     </div>
+    <?php endif; ?>
 
     <!-- ── Tarjetas resumen (solo pantalla) ──────────────── -->
     <div class="row g-3 mb-4 no-print">
