@@ -100,6 +100,7 @@ if ($proveedor_id > 0) {
         ) ef ON ef.remito_id = r.id
         WHERE r.empresa_id   = ?
           AND r.proveedor_id = ?
+          AND r.entrega_fisica = 1
           AND DATE(i.fecha_ingreso) <= ?
           AND (ef.fecha_salida_real IS NULL OR ef.fecha_salida_real >= ?)
         ORDER BY DATE(i.fecha_ingreso), r.id
