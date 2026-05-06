@@ -3,14 +3,17 @@
   "short_name": "Logax",
   "description": "Sistema de gestión logística Logax",
   "start_url": "/ops/index.php",
+  "scope": "/ops/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#0f2850",
   "theme_color": "#0f2850",
   "icons": [
     {
       "src": "/ops/assets/img/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/ops/assets/img/icon-512.png",

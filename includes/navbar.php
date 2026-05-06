@@ -6,8 +6,8 @@ if (!isset($nav_modulo)) $nav_modulo = '';
 <nav class="navbar navbar-dark bg-primary navbar-expand-lg sticky-top shadow-sm">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="<?= url('index.php') ?>">
-            <i class="bi bi-truck-front-fill"></i>
-            <?= h(APP_NAME) ?>
+            <img src="<?= url('assets/img/logo.svg') ?>" alt="Logax"
+                 style="height:34px;filter:brightness(0) invert(1);">
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
             <span class="navbar-toggler-icon"></span>
@@ -101,6 +101,11 @@ if (!isset($nav_modulo)) $nav_modulo = '';
     </div>
 </nav>
 <script>
+// ── Service Worker (PWA) ─────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/ops/sw.js', { scope: '/ops/' }).catch(() => {});
+}
+
 // ── Enter avanza al siguiente campo ──────────────────────────────
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Enter') return;
