@@ -1,4 +1,4 @@
-const CACHE = 'logax-v1';
+const CACHE = 'logax-v2';
 
 const STATIC_ASSETS = [
     '/ops/assets/css/app.css',
@@ -45,11 +45,6 @@ self.addEventListener('fetch', e => {
         return;
     }
 
-    // Páginas PHP: network first, fallback a cache
-    e.respondWith(
-        fetch(req).then(res => {
-            if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
-            return res;
-        }).catch(() => caches.match(req))
-    );
+    // Páginas PHP: solo red, nunca cachear
+    if (/\.php(\?|$)/.test(url.pathname) || url.pathname.endsWith('/')) return;
 });
