@@ -71,7 +71,7 @@ function fmtFecha(string $ymd): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Hoja de ruta #<?= $entrega_id ?> — <?= APP_NAME ?></title>
+    <title>Salida #<?= $entrega_id ?> — <?= APP_NAME ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
@@ -89,6 +89,7 @@ function fmtFecha(string $ymd): string {
             .hr-header      { margin-bottom: .5rem; padding-bottom: .4rem; }
             .hr-numero      { font-size: 1.1rem; }
             .hr-empresa     { font-size: .85rem; }
+            .hr-logo        { height: 44px !important; }
             .info-grid      { margin-bottom: .6rem; gap: .15rem 1rem; }
             .tabla-remitos td { padding: .22rem .45rem; }
             .tabla-remitos th { padding: .22rem .45rem; }
@@ -141,9 +142,9 @@ function fmtFecha(string $ymd): string {
     <a href="<?= $back_url ?>" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>Volver
     </a>
-    <span class="text-muted small">Hoja de ruta #<?= $entrega_id ?></span>
+    <span class="text-muted small">Salida #<?= $entrega_id ?></span>
     <button onclick="window.print()" class="btn btn-primary btn-sm ms-auto">
-        <i class="bi bi-printer me-1"></i>Imprimir
+        <i class="bi bi-printer me-1"></i>Imprimir salida
     </button>
 </div>
 
@@ -152,9 +153,12 @@ function fmtFecha(string $ymd): string {
 
     <!-- ── Encabezado ─────────────────────────────────────────── -->
     <div class="hr-header d-flex justify-content-between align-items-end">
-        <div>
-            <div class="hr-empresa"><?= h(empresa_nombre()) ?></div>
-            <div class="hr-numero">Hoja de ruta <span style="color:#f97316">#<?= $entrega_id ?></span></div>
+        <div class="d-flex align-items-center gap-3">
+            <img src="<?= url('assets/img/logo-source.png') ?>" alt="Logax" class="hr-logo" style="height:54px;width:auto;object-fit:contain">
+            <div>
+                <div class="hr-empresa"><?= h(empresa_nombre()) ?></div>
+                <div class="hr-numero">Salida <span style="color:#f97316">#<?= $entrega_id ?></span></div>
+            </div>
         </div>
         <div class="text-end text-muted small">
             <div><?= fmtFecha($entrega['fecha']) ?></div>

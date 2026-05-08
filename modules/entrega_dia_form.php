@@ -131,7 +131,7 @@ function renderCambiarEstado(int $edit_id, array $entrega, string $back): void {
             <span class="badge bg-<?= $badge_color ?> fs-6 px-3 py-2"><?= $badge_label ?></span>
             <a href="<?= url('modules/entrega_hoja_ruta.php') ?>?id=<?= $edit_id ?>&back=<?= urlencode($back) ?>"
        class="btn btn-outline-secondary btn-sm ms-auto" target="_blank">
-        <i class="bi bi-printer me-1"></i>Hoja de ruta
+        <i class="bi bi-printer me-1"></i>Imprimir salida
     </a>
     <?php if (!$readonly): ?>
             <div class="d-flex gap-2 flex-wrap">
