@@ -70,10 +70,12 @@ if ($accion === 'asignar') {
     $db->beginTransaction();
     try {
         if ($entrega_id > 0) {
-            // Verificar que la entrega existe y está pendiente
-            $st2 = $db->prepare("SELECT id FROM entregas WHERE id=? AND empresa_id=? AND estado NOT IN ('completada','entregado','con_incidencias')");
+            // Verificar que la entrega existe y no está cerrada
+            $st2 = $db->prepare("SELECT id, estado FROM entregas WHERE id=? AND empresa_id=? AND estado NOT IN ('completada','entregado','con_incidencias')");
             $st2->execute([$entrega_id, $eid]);
-            if (!$st2->fetch()) { $db->rollBack(); redir($fecha); }
+            $entrega_row = $st2->fetch();
+            if (!$entrega_row) { $db->rollBack(); redir($fecha); }
+            $estado_entrega = $entrega_row['estado'];
         } else {
             // Crear nueva entrega vacía para la fecha indicada
             $db->prepare("
@@ -81,15 +83,17 @@ if ($accion === 'asignar') {
                 VALUES (?, ?, ?, 'armando')
             ")->execute([$eid, $fecha, $fecha . ' 00:00:00']);
             $entrega_id = (int)$db->lastInsertId();
+            $estado_entrega = 'armando';
         }
 
         // Vincular remito a la entrega
         $db->prepare("INSERT IGNORE INTO entrega_remitos (entrega_id, remito_id) VALUES (?,?)")
            ->execute([$entrega_id, $remito_id]);
 
-        // Actualizar estado del remito
-        $db->prepare("UPDATE remitos SET estado='programado', fecha_entrega=? WHERE id=? AND empresa_id=?")
-           ->execute([$fecha, $remito_id, $eid]);
+        // Si la entrega ya salió, el remito también va en_camino (así la auto-transición lo captura)
+        $nuevo_estado_remito = $estado_entrega === 'en_camino' ? 'en_camino' : 'programado';
+        $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=? WHERE id=? AND empresa_id=?")
+           ->execute([$nuevo_estado_remito, $fecha, $remito_id, $eid]);
 
         $db->commit();
     } catch (Exception $e) {
