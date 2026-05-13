@@ -13,7 +13,8 @@ if (session_status() === PHP_SESSION_NONE) {
 // Redirige al login si no hay sesión activa; controla timeout y cambio de clave obligatorio
 function require_login(): void
 {
-    if (empty($_SESSION['usuario_id'])) {
+    if (empty($_SESSION['usuario_id']) || empty($_SESSION['empresa_id'])) {
+        session_destroy();
         header('Location: ' . BASE_URL . '/login.php');
         exit;
     }

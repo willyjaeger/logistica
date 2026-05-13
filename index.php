@@ -123,7 +123,7 @@ $nav_modulo = 'panel';
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <link rel="manifest" href="/ops/manifest.json">
+    <link rel="manifest" href="/ops/manifest.json?v=3">
     <link rel="icon" href="/ops/favicon.ico">
     <link rel="apple-touch-icon" href="/ops/assets/img/icon-192.png">
     <meta charset="UTF-8">

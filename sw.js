@@ -1,4 +1,4 @@
-const CACHE = 'logax-v2';
+const CACHE = 'logax-v3';
 
 const STATIC_ASSETS = [
     '/ops/assets/css/app.css',
