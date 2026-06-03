@@ -331,6 +331,16 @@ function diaSemana(string $ymd): string {
     return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][(int)(new DateTime($ymd))->format('w')];
 }
 
+// ── Variables de presentación (necesarias para export y para HTML) ──
+$meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+          'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+$anios     = range(date('Y'), 2024, -1);
+$con_pos   = $precio_pos   > 0;
+$con_viaje = $precio_viaje > 0;
+$con_saldo = $con_pos || $con_viaje;
+$modo_camion = $precio_modo === 'camion';
+$ncols = 6 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_saldo ? 1 : 0);
+
 // ── Export Excel ──────────────────────────────────────────────
 if ($datos && isset($_GET['export']) && $_GET['export'] === 'excel') {
     $fname = 'CC_' . preg_replace('/[^a-z0-9_]/i', '_', $prov_nombre)
@@ -443,16 +453,7 @@ if ($datos && isset($_GET['export']) && $_GET['export'] === 'excel') {
     exit;
 }
 
-$meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
-          'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-$anios = range(date('Y'), 2024, -1);
-
-$con_pos     = $precio_pos   > 0;
-$con_viaje   = $precio_viaje > 0;
-$con_saldo   = $con_pos || $con_viaje;   // columna Saldo acumulado
-$modo_camion = $precio_modo === 'camion';
-// Cantidad de columnas para colspan en filas de totales
-$ncols = 6 + ($modo_camion ? 1 : 0) + ($con_pos ? 1 : 0) + ($con_viaje ? 1 : 0) + ($con_saldo ? 1 : 0);
+// (variables de presentación ya definidas arriba antes del export)
 
 $nav_modulo = 'reportes';
 ?>
