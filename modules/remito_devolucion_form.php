@@ -153,13 +153,13 @@ $nav_modulo = 'remitos';
                             <input type="number" name="items[<?= $idx ?>][cantidad]"
                                    class="form-control form-control-sm text-end item-cant"
                                    min="0" step="1"
-                                   value="<?= number_format((float)$it['cantidad'], 0) ?>">
+                                   value="0">
                         </td>
                         <td class="text-end">
                             <input type="number" name="items[<?= $idx ?>][pallets]"
                                    class="form-control form-control-sm text-end item-pal"
                                    min="0" step="0.001"
-                                   value="<?= number_format($pal_orig, 3) ?>">
+                                   value="0">
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -218,9 +218,8 @@ $nav_modulo = 'remitos';
         cantInp.addEventListener('input', () => recalcRow(row));
         palInp.addEventListener('input',  recalcTotal);
 
-        // Estado inicial: marcar cero solo si la cantidad es 0
-        const cant = parseFloat(cantInp.value) || 0;
-        row.classList.toggle('row-cero', cant === 0);
+        // Estado inicial: todo empieza en 0
+        row.classList.add('row-cero');
     });
 
     // Validar antes de enviar: al menos un ítem con cantidad > 0
