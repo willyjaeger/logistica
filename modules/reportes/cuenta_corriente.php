@@ -85,6 +85,7 @@ if ($proveedor_id > 0) {
 
     $stmt = $db->prepare("
         SELECT r.id, r.nro_remito_propio, r.total_pallets, r.entrega_fisica,
+               r.fecha_devolucion, r.pallets_devueltos,
                c.nombre              AS cliente,
                DATE(i.fecha_ingreso) AS fecha_ingreso,
                ef.fecha_salida_real
@@ -101,10 +102,11 @@ if ($proveedor_id > 0) {
         WHERE r.empresa_id   = ?
           AND r.proveedor_id = ?
           AND DATE(i.fecha_ingreso) <= ?
-          AND (ef.fecha_salida_real IS NULL OR ef.fecha_salida_real >= ?)
+          AND (ef.fecha_salida_real IS NULL OR ef.fecha_salida_real >= ?
+               OR (r.fecha_devolucion IS NOT NULL AND r.fecha_devolucion <= ?))
         ORDER BY DATE(i.fecha_ingreso), r.id
     ");
-    $stmt->execute([$eid, $proveedor_id, $fin, $inicio]);
+    $stmt->execute([$eid, $proveedor_id, $fin, $inicio, $fin]);
     $remitos_periodo = $stmt->fetchAll();
 
     $tc = $db->prepare("SELECT fecha, camiones FROM cc_viajes
@@ -116,11 +118,16 @@ if ($proveedor_id > 0) {
     // Auto-calculado: pallets que ingresaron antes del mes y no salieron (solo físicos)
     $ayer_ini = (new DateTime($inicio))->modify('-1 day')->format('Y-m-d');
     foreach ($remitos_periodo as $r) {
-        $pal = (float)$r['total_pallets'];
+        $pal     = (float)$r['total_pallets'];
+        $pal_dev = $r['fecha_devolucion'] !== null ? (float)($r['pallets_devueltos'] ?? $pal) : 0.0;
         if ($r['entrega_fisica'] &&
             $r['fecha_ingreso'] <= $ayer_ini &&
             ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $ayer_ini)) {
             $saldo_ini_auto += $pal;
+        }
+        // Devolucion anterior al período: mercadería está de vuelta en depósito
+        if ($r['fecha_devolucion'] !== null && $r['fecha_devolucion'] <= $ayer_ini) {
+            $saldo_ini_auto += $pal_dev;
         }
     }
     // Si hay valor guardado en DB, lo usa; si no, usa el auto-calculado
@@ -158,6 +165,10 @@ if ($proveedor_id > 0) {
             && $r['fecha_salida_real'] >= $inicio
             && $r['fecha_salida_real'] <= $fin)
             $eventos_fechas[$r['fecha_salida_real']] = true;
+        if ($r['fecha_devolucion'] !== null
+            && $r['fecha_devolucion'] >= $inicio
+            && $r['fecha_devolucion'] <= $fin)
+            $eventos_fechas[$r['fecha_devolucion']] = true;
     }
     ksort($eventos_fechas);
     $eventos_fechas = array_keys($eventos_fechas);
@@ -181,13 +192,15 @@ if ($proveedor_id > 0) {
 
     foreach ($eventos_fechas as $d) {
         // Stock al CIERRE de este evento (después de todos los movimientos de hoy)
-        $stock    = 0.0;
-        $pal_sal  = 0.0;
-        $entradas = [];
-        $salidas  = [];
+        $stock        = 0.0;
+        $pal_sal      = 0.0;
+        $entradas     = [];
+        $salidas      = [];
+        $devoluciones = [];
 
         foreach ($remitos_periodo as $r) {
-            $pal = (float)$r['total_pallets'];
+            $pal     = (float)$r['total_pallets'];
+            $pal_dev = $r['fecha_devolucion'] !== null ? (float)($r['pallets_devueltos'] ?? $pal) : 0.0;
             if ($r['entrega_fisica'] &&
                 $r['fecha_ingreso'] <= $d &&
                 ($r['fecha_salida_real'] === null || $r['fecha_salida_real'] > $d)) {
@@ -197,8 +210,13 @@ if ($proveedor_id > 0) {
                       $r['fecha_salida_real'] <= $d) {
                 $stock -= $pal;   // egreso de remito virtual: resta del stock físico existente
             }
+            // Devolucion: la mercadería volvió al depósito desde fecha_devolucion
+            if ($r['fecha_devolucion'] !== null && $r['fecha_devolucion'] <= $d) {
+                $stock += $pal_dev;
+            }
             if ($r['fecha_ingreso'] === $d && $r['entrega_fisica'])  $entradas[] = $r;
             if ($r['fecha_salida_real'] === $d) { $salidas[] = $r; $pal_sal += $pal; }
+            if ($r['fecha_devolucion'] === $d)    $devoluciones[] = $r;
         }
 
         // Días transcurridos desde el evento anterior
@@ -241,6 +259,7 @@ if ($proveedor_id > 0) {
             'pos_cobradas'   => $pos_cobradas,          // pal × días
             'entradas'       => $entradas,
             'salidas'        => $salidas,
+            'devoluciones'   => $devoluciones,
             'pal_sal'        => $pal_sal,
             'camiones'       => $camiones_dia,
             'costo_pos'      => $cobro_pos,
@@ -265,6 +284,7 @@ if ($proveedor_id > 0) {
             && $r['fecha_salida_real'] <= $fin)                             $total_salido    += $pal;
         if ($r['entrega_fisica'] && $r['fecha_salida_real'] === null)  $stock_actual += $pal;
         if (!$r['entrega_fisica'] && $r['fecha_salida_real'] !== null) $stock_actual -= $pal;
+        if ($r['fecha_devolucion'] !== null) $stock_actual += (float)($r['pallets_devueltos'] ?? $pal);
     }
     $stock_actual = max(0.0, $stock_actual + $delta_ini); // sumar pallets manuales del saldo ini
 
@@ -525,12 +545,14 @@ $nav_modulo = 'reportes';
             foreach ($datos['dias'] as $dia => $info):
                 $tiene_entradas = !empty($info['entradas']);
                 $tiene_salidas  = !empty($info['salidas']);
-                if (!$tiene_entradas && !$tiene_salidas) continue;
+                $tiene_devols   = !empty($info['devoluciones'] ?? []);
+                if (!$tiene_entradas && !$tiene_salidas && !$tiene_devols) continue;
 
-                // Armar lista de movimientos del día: primero entradas, luego salidas
+                // Armar lista de movimientos del día: primero entradas, luego salidas, luego devoluciones
                 $pt_movs = [];
-                foreach ($info['entradas'] as $r) $pt_movs[] = ['tipo' => 'ingreso', 'r' => $r];
-                foreach ($info['salidas']  as $r) $pt_movs[] = ['tipo' => 'salida',  'r' => $r];
+                foreach ($info['entradas']          as $r) $pt_movs[] = ['tipo' => 'ingreso',    'r' => $r];
+                foreach ($info['salidas']           as $r) $pt_movs[] = ['tipo' => 'salida',     'r' => $r];
+                foreach ($info['devoluciones'] ?? [] as $r) $pt_movs[] = ['tipo' => 'devolucion', 'r' => $r];
                 $pt_last = count($pt_movs) - 1;
 
                 // Fila separadora de día
@@ -553,7 +575,9 @@ $nav_modulo = 'reportes';
                 <?php foreach ($pt_movs as $pt_idx => $mov):
                     $r        = $mov['r'];
                     $es_ing   = $mov['tipo'] === 'ingreso';
+                    $es_dev   = $mov['tipo'] === 'devolucion';
                     $pal      = (float)$r['total_pallets'];
+                    $pal_show = $es_dev ? (float)($r['pallets_devueltos'] ?? $pal) : $pal;
                     $es_last  = ($pt_idx === $pt_last);
                     $bg_row   = $pt_row_alt ? '#f9f9f9' : '#fff';
                     $pt_row_alt = !$pt_row_alt;
@@ -563,17 +587,19 @@ $nav_modulo = 'reportes';
                     <td style="padding:3pt 5pt; white-space:nowrap;">
                         <?php if ($es_ing): ?>
                         <span style="font-weight:600;">↑ Ingreso</span>
+                        <?php elseif ($es_dev): ?>
+                        <span style="font-weight:600; color:#155724;">↩ Devolución</span>
                         <?php else: ?>
                         <span>↓ Salida</span>
                         <?php endif; ?>
                     </td>
                     <td style="padding:3pt 5pt; font-family:monospace; font-size:8pt;"><?= h($r['nro_remito_propio']) ?></td>
                     <td style="padding:3pt 5pt;"><?= h($r['cliente']) ?></td>
-                    <td style="padding:3pt 5pt; text-align:right; font-weight:<?= $es_ing ? '700' : '400' ?>;">
-                        <?= $es_ing ? '+'.fmtPal($pal) : '—' ?>
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:<?= ($es_ing || $es_dev) ? '700' : '400' ?>;">
+                        <?= ($es_ing || $es_dev) ? '+'.fmtPal($pal_show) : '—' ?>
                     </td>
-                    <td style="padding:3pt 5pt; text-align:right; font-weight:<?= !$es_ing ? '700' : '400' ?>;">
-                        <?= !$es_ing ? '−'.fmtPal($pal) : '—' ?>
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:<?= (!$es_ing && !$es_dev) ? '700' : '400' ?>;">
+                        <?= (!$es_ing && !$es_dev) ? '−'.fmtPal($pal) : '—' ?>
                     </td>
                     <!-- Stock y billing solo en la última fila del día -->
                     <?php if ($es_last): ?>
@@ -768,9 +794,10 @@ $nav_modulo = 'reportes';
             <?php
             $rowIdx = 0;
             foreach ($datos['dias'] as $dia => $info):
-                $tiene_entradas = !empty($info['entradas']);
-                $tiene_salidas  = !empty($info['salidas']);
-                $tiene_movs     = $tiene_entradas || $tiene_salidas;
+                $tiene_entradas  = !empty($info['entradas']);
+                $tiene_salidas   = !empty($info['salidas']);
+                $tiene_devols    = !empty($info['devoluciones'] ?? []);
+                $tiene_movs      = $tiene_entradas || $tiene_salidas || $tiene_devols;
                 if (!$tiene_movs) continue;
 
                 $sem     = diaSemana($dia);
@@ -788,6 +815,11 @@ $nav_modulo = 'reportes';
                 if ($tiene_salidas) {
                     $n = count($info['salidas']);
                     $badges .= '<span class="badge me-1" style="background:#f97316">' . $n . ' entrega' . ($n>1?'s':'') . ' −' . fmtPal($info['pal_sal']) . ' pal.</span>';
+                }
+                if ($tiene_devols) {
+                    $n = count($info['devoluciones']);
+                    $pal_d = array_sum(array_map(fn($r) => (float)($r['pallets_devueltos'] ?? $r['total_pallets']), $info['devoluciones']));
+                    $badges .= '<span class="badge bg-info text-dark me-1">' . $n . ' devolución' . ($n>1?'es':'') . ' +' . number_format($pal_d,1) . ' pal.</span>';
                 }
                 if (!$tiene_movs) $badges = '<span class="text-muted small">Stock en depósito</span>';
 
@@ -809,9 +841,11 @@ $nav_modulo = 'reportes';
                 </td>
                 <td><?= $badges ?></td>
                 <td class="text-end text-success">
-                    <?php if ($tiene_entradas): ?>
-                    +<?= fmtPal(array_sum(array_column($info['entradas'], 'total_pallets'))) ?>
-                    <?php else: ?>—<?php endif; ?>
+                    <?php
+                    $pal_ent = $tiene_entradas ? array_sum(array_column($info['entradas'], 'total_pallets')) : 0;
+                    $pal_dev_dia = $tiene_devols ? array_sum(array_map(fn($r) => (float)($r['pallets_devueltos'] ?? $r['total_pallets']), $info['devoluciones'])) : 0;
+                    echo ($pal_ent + $pal_dev_dia > 0) ? '+' . fmtPal($pal_ent + $pal_dev_dia) : '—';
+                    ?>
                 </td>
                 <td class="text-end col-viaje">
                     <?= $tiene_salidas ? '−' . fmtPal($info['pal_sal']) : '—' ?>
@@ -876,6 +910,22 @@ $nav_modulo = 'reportes';
                 </td>
                 <td></td>
                 <td class="text-end col-viaje fw-semibold">−<?= fmtPal((float)$r['total_pallets']) ?></td>
+                <?php if ($modo_camion): ?><td class="no-print"></td><?php endif; ?>
+                <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_saldo?1:0) ?>"></td>
+            </tr>
+            <?php endforeach; ?>
+
+            <?php foreach ($info['devoluciones'] ?? [] as $r): ?>
+            <tr class="row-detail row-detail-ing <?= $grpId ?> d-none">
+                <td class="ps-3 text-muted" style="font-size:.8rem"><?= fmtDia($dia) ?></td>
+                <td class="no-print"></td>
+                <td>
+                    <span class="badge bg-info text-dark me-1">Devolución</span>
+                    <span class="font-monospace small"><?= h($r['nro_remito_propio']) ?></span>
+                    <span class="text-muted ms-1 small"><?= h($r['cliente']) ?></span>
+                </td>
+                <td class="text-end text-success fw-semibold">+<?= fmtPal((float)($r['pallets_devueltos'] ?? $r['total_pallets'])) ?></td>
+                <td></td>
                 <?php if ($modo_camion): ?><td class="no-print"></td><?php endif; ?>
                 <td colspan="<?= 1 + ($con_pos?1:0) + ($con_viaje?1:0) + ($con_saldo?1:0) ?>"></td>
             </tr>

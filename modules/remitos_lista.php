@@ -50,6 +50,7 @@ if ($hasta !== '') {
 $sql = "
     SELECT r.id, r.nro_remito_propio, r.fecha_remito, r.estado,
            r.total_pallets, r.nro_oc, r.observaciones, r.fecha_entrega,
+           r.fecha_devolucion, r.pallets_devueltos,
            c.nombre     AS cliente,
            p.nombre     AS proveedor,
            i.fecha_ingreso, i.transportista, i.patente_camion_ext,
@@ -216,6 +217,12 @@ $nav_modulo = 'remitos';
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
+    <?php if (isset($_GET['dev'])): ?>
+    <div class="alert alert-warning alert-dismissible py-2 mb-3">
+        <i class="bi bi-arrow-return-left me-2"></i>Devolución registrada. El stock fue actualizado.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php endif; ?>
 
     <!-- Filtros -->
     <form method="GET" class="row g-2 mb-3 align-items-end">
@@ -304,7 +311,15 @@ $nav_modulo = 'remitos';
                             <span class="text-muted">—</span>
                             <?php endif; ?>
                         </td>
-                        <td><span class="badge <?= $cls ?>"><?= $lbl ?></span></td>
+                        <td>
+                            <span class="badge <?= $cls ?>"><?= $lbl ?></span>
+                            <?php if ($r['fecha_devolucion']): ?>
+                            <br><span class="badge bg-info text-dark mt-1" style="font-size:.65rem"
+                                  title="Devolución el <?= $r['fecha_devolucion'] ?>">
+                                <i class="bi bi-arrow-return-left me-1"></i><?= number_format((float)$r['pallets_devueltos'], 1) ?> pal. devueltos
+                            </span>
+                            <?php endif; ?>
+                        </td>
                         <td class="small text-muted">
                             <?php if ($r['fecha_entrega']): ?>
                                 <?php [$ye,$me,$de] = explode('-', $r['fecha_entrega']); echo "$de/$me/$ye"; ?>
@@ -333,6 +348,13 @@ $nav_modulo = 'remitos';
                                class="btn btn-sm btn-outline-warning" title="Asignar a salida">
                                 <i class="bi bi-truck"></i>
                             </a>
+                            <?php endif; ?>
+                            <?php if ($r['estado'] === 'entregado' && !$r['fecha_devolucion']): ?>
+                            <button type="button" class="btn btn-sm btn-outline-warning"
+                                    title="Registrar devolución"
+                                    onclick="abrirModalDev(<?= $r['id'] ?>, <?= (float)$r['total_pallets'] ?>, '<?= h(addslashes($r['nro_remito_propio'])) ?>')">
+                                <i class="bi bi-arrow-return-left"></i>
+                            </button>
                             <?php endif; ?>
                             <a href="<?= url("modules/remitos_form.php?id={$r['id']}") . ($back_qs ? '&back=' . urlencode($back_qs) : '') ?>"
                                class="btn btn-sm btn-outline-primary" title="Editar">
@@ -394,6 +416,44 @@ $nav_modulo = 'remitos';
 
 </div>
 
+<!-- Modal devolución -->
+<div class="modal fade" id="modal-dev" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title fw-bold">
+                    <i class="bi bi-arrow-return-left me-2 text-warning"></i>Registrar devolución
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="<?= url('modules/remito_devolucion_guardar.php') ?>">
+                <div class="modal-body">
+                    <input type="hidden" name="remito_id" id="dev-remito-id">
+                    <input type="hidden" name="back" value="<?= h($back_qs) ?>">
+                    <p class="small fw-semibold text-muted mb-3" id="dev-nro"></p>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Fecha de devolución</label>
+                        <input type="date" name="fecha_devolucion" class="form-control" required
+                               value="<?= date('Y-m-d') ?>">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-semibold">Pallets devueltos</label>
+                        <input type="number" name="pallets_devueltos" id="dev-pallets"
+                               class="form-control" step="0.5" min="0.5" required>
+                        <div class="form-text text-muted" id="dev-max-txt"></div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Registrar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function toggleItems(btn, id) {
@@ -401,6 +461,14 @@ function toggleItems(btn, id) {
     const open = !row.classList.contains('d-none');
     row.classList.toggle('d-none', open);
     btn.classList.toggle('open', !open);
+}
+function abrirModalDev(remito_id, total_pallets, nro) {
+    document.getElementById('dev-remito-id').value = remito_id;
+    document.getElementById('dev-pallets').value   = total_pallets;
+    document.getElementById('dev-pallets').max     = total_pallets;
+    document.getElementById('dev-nro').textContent = 'Remito: ' + nro;
+    document.getElementById('dev-max-txt').textContent = 'Máx: ' + total_pallets + ' pal.';
+    new bootstrap.Modal(document.getElementById('modal-dev')).show();
 }
 </script>
 </body>
