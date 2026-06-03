@@ -16,7 +16,8 @@
       "PowerShell(php -r \"echo 'ok';\" 2>&1)",
       "Bash(python3 -c \"from PIL import Image; print\\('pillow ok'\\)\")",
       "Bash(python3 -m pip install Pillow --quiet)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "WebSearch"
     ]
   }
 }
