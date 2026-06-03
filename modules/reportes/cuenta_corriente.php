@@ -38,6 +38,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ON DUPLICATE KEY UPDATE saldo = VALUES(saldo)
                 ")->execute([$eid, $pid_post, $anio_post, $mes_post, $saldo_ini_post]);
             }
+            // Guardar precios para pre-llenar el formulario la próxima vez
+            $pp_pos   = max(0.0, (float)str_replace(',', '.', $_POST['precio_pos']   ?? '0'));
+            $pp_viaje = max(0.0, (float)str_replace(',', '.', $_POST['precio_viaje'] ?? '0'));
+            $pp_modo  = in_array($_POST['precio_modo'] ?? '', ['camion','pallet']) ? $_POST['precio_modo'] : 'camion';
+            $db->prepare("
+                INSERT INTO cc_precios (empresa_id, proveedor_id, precio_pos, precio_viaje, precio_modo)
+                VALUES (?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE precio_pos=VALUES(precio_pos), precio_viaje=VALUES(precio_viaje), precio_modo=VALUES(precio_modo)
+            ")->execute([$eid, $pid_post, $pp_pos, $pp_viaje, $pp_modo]);
             $db->commit();
         } catch (Exception $e) {
             $db->rollBack();
@@ -61,6 +70,17 @@ $anio         = max(2020, (int)($_GET['anio']       ?? date('Y')));
 $precio_pos   = (float)str_replace(',', '.', $_GET['precio_pos']   ?? '0');
 $precio_viaje = (float)str_replace(',', '.', $_GET['precio_viaje'] ?? '0');
 $precio_modo  = in_array($_GET['precio_modo'] ?? '', ['camion','pallet']) ? $_GET['precio_modo'] : 'camion';
+// Pre-cargar precios guardados si el usuario no los pasó en la URL
+if ($proveedor_id > 0 && !isset($_GET['precio_pos'])) {
+    $pcp = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=?");
+    $pcp->execute([$eid, $proveedor_id]);
+    $cp_row = $pcp->fetch();
+    if ($cp_row) {
+        $precio_pos   = (float)$cp_row['precio_pos'];
+        $precio_viaje = (float)$cp_row['precio_viaje'];
+        $precio_modo  = $cp_row['precio_modo'];
+    }
+}
 $saldo_ini_get = array_key_exists('saldo_ini', $_GET)
     ? max(0.0, (float)str_replace(',', '.', $_GET['saldo_ini']))
     : null;
@@ -311,6 +331,118 @@ function diaSemana(string $ymd): string {
     return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][(int)(new DateTime($ymd))->format('w')];
 }
 
+// ── Export Excel ──────────────────────────────────────────────
+if ($datos && isset($_GET['export']) && $_GET['export'] === 'excel') {
+    $fname = 'CC_' . preg_replace('/[^a-z0-9_]/i', '_', $prov_nombre)
+           . '_' . $meses[$mes] . '_' . $anio . '.xls';
+    header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $fname . '"');
+    header('Cache-Control: max-age=0');
+    echo "\xEF\xBB\xBF"; // BOM UTF-8
+    echo '<html xmlns:o="urn:schemas-microsoft-com:office:office"
+               xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head><meta charset="UTF-8">
+<style>
+  td,th { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+  .hdr  { background:#1a2a3a; color:#fff; font-weight:bold; }
+  .day  { background:#e8e8e8; font-weight:bold; }
+  .tot  { background:#1a2a3a; color:#fff; font-weight:bold; }
+  .num  { mso-number-format: \'#,##0.00\'; }
+  .pal  { mso-number-format: \'#,##0.0\'; }
+</style></head><body>';
+    echo '<table border="1" cellspacing="0" cellpadding="4">';
+    // Encabezado del documento
+    echo '<tr><td colspan="10" style="font-size:14pt;font-weight:bold">' . htmlspecialchars($prov_nombre) . '</td></tr>';
+    echo '<tr><td colspan="10">Cuenta Corriente — ' . $meses[$mes] . ' ' . $anio . '</td></tr>';
+    if ($con_pos)   echo '<tr><td colspan="10">Almacenaje: $' . number_format($precio_pos,2,',','.') . ' / pos·día</td></tr>';
+    if ($con_viaje) echo '<tr><td colspan="10">Distribución: $' . number_format($precio_viaje,2,',','.') . ' / ' . ($modo_camion ? 'camión' : 'pallet') . '</td></tr>';
+    echo '<tr><td colspan="10"></td></tr>';
+    // Cabecera de tabla
+    echo '<tr>';
+    echo '<th class="hdr">Fecha</th><th class="hdr">Día</th><th class="hdr">Tipo</th>';
+    echo '<th class="hdr">Remito</th><th class="hdr">Cliente</th>';
+    echo '<th class="hdr">Pal. entrada</th><th class="hdr">Pal. salida</th>';
+    echo '<th class="hdr">Stock</th><th class="hdr">Días</th><th class="hdr">Saldo ant.</th>';
+    if ($con_pos)    echo '<th class="hdr">Posiciones</th><th class="hdr">$ Almacenaje</th>';
+    if ($con_viaje)  echo '<th class="hdr">' . ($modo_camion ? 'Camiones' : 'Pal. distrib.') . '</th><th class="hdr">$ Distribución</th>';
+    if ($con_saldo)  echo '<th class="hdr">Saldo acum.</th>';
+    echo '</tr>';
+    // Filas
+    foreach ($datos['dias'] as $dia => $info) {
+        $tiene_e = !empty($info['entradas']);
+        $tiene_s = !empty($info['salidas']);
+        $tiene_d = !empty($info['devoluciones'] ?? []);
+        if (!$tiene_e && !$tiene_s && !$tiene_d) continue;
+        $sem = diaSemana($dia);
+        [$y,$m_n,$d_n] = explode('-', $dia);
+        $fecha_fmt = "$d_n/$m_n/$y";
+        // Fila separadora de día
+        $n_cols = 10 + ($con_pos?2:0) + ($con_viaje?2:0) + ($con_saldo?1:0);
+        $info_dia = $info['saldo_anterior'] > 0
+            ? number_format($info['saldo_anterior'],1).' pal. × '.$info['dias_entre'].' días'
+            : '';
+        echo '<tr class="day"><td colspan="' . $n_cols . '">'
+           . $sem . ' ' . $fecha_fmt
+           . ($info_dia ? ' — ' . $info_dia : '')
+           . '</td></tr>';
+        // Movimientos del día
+        $movs = [];
+        foreach ($info['entradas'] as $r)            $movs[] = ['tipo'=>'Ingreso',    'r'=>$r];
+        foreach ($info['salidas']  as $r)            $movs[] = ['tipo'=>'Salida',     'r'=>$r];
+        foreach ($info['devoluciones'] ?? [] as $r)  $movs[] = ['tipo'=>'Devolución', 'r'=>$r];
+        $last = count($movs) - 1;
+        foreach ($movs as $mi => $mov) {
+            $r      = $mov['r'];
+            $es_ing = $mov['tipo'] === 'Ingreso';
+            $es_dev = $mov['tipo'] === 'Devolución';
+            $pal    = (float)$r['total_pallets'];
+            $pal_show = $es_dev ? (float)($r['pallets_devueltos'] ?? $pal) : $pal;
+            $es_last = ($mi === $last);
+            echo '<tr>';
+            echo '<td>' . $fecha_fmt . '</td>';
+            echo '<td>' . $sem . '</td>';
+            echo '<td>' . htmlspecialchars($mov['tipo']) . '</td>';
+            echo '<td>' . htmlspecialchars($r['nro_remito_propio']) . '</td>';
+            echo '<td>' . htmlspecialchars($r['cliente']) . '</td>';
+            echo '<td style="text-align:right">' . (($es_ing||$es_dev) ? '+'.number_format($pal_show,1) : '') . '</td>';
+            echo '<td style="text-align:right">' . ((!$es_ing&&!$es_dev) ? '-'.number_format($pal,1) : '') . '</td>';
+            if ($es_last) {
+                echo '<td style="text-align:right">' . number_format($info['stock'],1) . '</td>';
+                echo '<td style="text-align:right">' . $info['dias_entre'] . '</td>';
+                echo '<td style="text-align:right">' . number_format($info['saldo_anterior'],1) . '</td>';
+                if ($con_pos) {
+                    echo '<td style="text-align:right">' . number_format($info['pos_cobradas'],1) . '</td>';
+                    echo '<td style="text-align:right">' . ($info['costo_pos'] !== null ? number_format($info['costo_pos'],2,',','.') : '') . '</td>';
+                }
+                if ($con_viaje) {
+                    echo '<td style="text-align:right">' . ($info['pal_sal'] > 0 ? ($modo_camion ? $info['camiones'] : number_format($info['pal_sal'],1)) : '') . '</td>';
+                    echo '<td style="text-align:right">' . ($info['costo_viaje'] !== null ? number_format($info['costo_viaje'],2,',','.') : '') . '</td>';
+                }
+                if ($con_saldo) echo '<td style="text-align:right">' . ($info['saldo_acum'] > 0 ? number_format($info['saldo_acum'],2,',','.') : '') . '</td>';
+            } else {
+                echo '<td></td><td></td><td></td>';
+                if ($con_pos)   echo '<td></td><td></td>';
+                if ($con_viaje) echo '<td></td><td></td>';
+                if ($con_saldo) echo '<td></td>';
+            }
+            echo '</tr>';
+        }
+    }
+    // Fila total
+    echo '<tr class="tot">';
+    echo '<td colspan="5" style="text-align:right">TOTAL ' . strtoupper($meses[$mes]) . ' ' . $anio . '</td>';
+    echo '<td style="text-align:right">+' . number_format($datos['total_ingresado'],1) . '</td>';
+    echo '<td style="text-align:right">-' . number_format($datos['total_salido'],1) . '</td>';
+    echo '<td style="text-align:right">' . number_format($datos['stock_actual'],1) . '</td>';
+    echo '<td></td><td></td>';
+    if ($con_pos)   { echo '<td style="text-align:right">' . number_format($datos['total_posiciones'],1) . '</td>'; echo '<td style="text-align:right">' . number_format($datos['total_costo_pos'],2,',','.') . '</td>'; }
+    if ($con_viaje) { echo '<td style="text-align:right">' . ($modo_camion ? $datos['total_camiones'] : number_format($datos['total_pal_viajes'],1)) . '</td>'; echo '<td style="text-align:right">' . number_format($datos['total_costo_viajes'],2,',','.') . '</td>'; }
+    if ($con_saldo) { echo '<td style="text-align:right">' . number_format($datos['total_general'],2,',','.') . '</td>'; }
+    echo '</tr>';
+    echo '</table></body></html>';
+    exit;
+}
+
 $meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
           'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 $anios = range(date('Y'), 2024, -1);
@@ -404,6 +536,16 @@ $nav_modulo = 'reportes';
             <i class="bi bi-journal-text me-2 text-primary"></i>Cuenta corriente — Proveedores
         </h5>
         <?php if (!empty($datos['remitos_periodo'])): ?>
+        <?php
+        $excel_url = url('modules/reportes/cuenta_corriente.php') . '?' . http_build_query([
+            'proveedor_id' => $proveedor_id, 'mes' => $mes, 'anio' => $anio,
+            'precio_pos' => $precio_pos, 'precio_viaje' => $precio_viaje,
+            'precio_modo' => $precio_modo, 'export' => 'excel',
+        ]);
+        ?>
+        <a href="<?= $excel_url ?>" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>Excel
+        </a>
         <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-printer me-1"></i>Imprimir
         </button>
