@@ -160,7 +160,7 @@ $nav_modulo = 'reportes';
                             <th class="text-center">Días</th>
                             <th>Remito</th>
                             <th>Cliente</th>
-                            <th>Proveedor</th>
+                            <?php if (!$proveedor_id): ?><th>Proveedor</th><?php endif; ?>
                             <th class="text-center">Pallets</th>
                         </tr>
                     </thead>
@@ -179,7 +179,7 @@ $nav_modulo = 'reportes';
                         </td>
                         <td class="fw-semibold font-monospace small"><?= h($r['nro_remito_propio']) ?></td>
                         <td><?= h($r['cliente']) ?></td>
-                        <td class="small text-muted"><?= h($r['proveedor'] ?? '—') ?></td>
+                        <?php if (!$proveedor_id): ?><td class="small text-muted"><?= h($r['proveedor'] ?? '—') ?></td><?php endif; ?>
                         <td class="text-center">
                             <?php if ($r['total_pallets'] > 0): ?>
                             <span class="badge bg-primary rounded-pill"><?= number_format($r['total_pallets'],1) ?></span>
