@@ -511,7 +511,14 @@ $nav_modulo = 'reportes';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Cuenta corriente — <?= APP_NAME ?></title>
+    <title><?php
+    if ($proveedor_id && $prov_nombre) {
+        $prov_short = mb_substr(preg_replace('/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/u', '', $prov_nombre), 0, 10);
+        echo 'Movimientos ' . trim($prov_short) . ' ' . $anio . ' ' . $meses[$mes];
+    } else {
+        echo 'Cuenta corriente — ' . APP_NAME;
+    }
+    ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
