@@ -1238,7 +1238,7 @@ $nav_modulo = 'reportes';
 
     <!-- ── Fórmula al pie ──────────────────────────────────── -->
     <?php if ($con_pos || $con_viaje): ?>
-    <div class="card mt-3">
+    <div class="card mt-3 no-print">
         <div class="card-body py-3">
             <div class="d-flex flex-wrap gap-3 align-items-center">
                 <?php if ($con_pos): ?>
