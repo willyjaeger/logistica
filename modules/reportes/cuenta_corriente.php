@@ -521,7 +521,7 @@ $nav_modulo = 'reportes';
             body { background: #fff; font-size: 11pt; }
             nav, .navbar { display: none !important; }
             .no-print, .row-detail { display: none !important; }
-            .print-detail { display: none !important; }
+            .print-resumen { display: none !important; }
             .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
             /* Tabla profesional de impresión */
             .print-doc { display: block !important; }
@@ -848,7 +848,7 @@ $nav_modulo = 'reportes';
         </div><!-- /print-detail -->
 
         <?php if ($con_pos || $con_viaje || $total_gastos > 0): ?>
-        <div style="margin-top:12pt; padding-top:8pt; border-top:2pt solid #111;">
+        <div class="print-resumen" style="margin-top:12pt; padding-top:8pt; border-top:2pt solid #111;">
             <div style="font-size:10pt; font-weight:700; text-transform:uppercase; letter-spacing:.5pt; margin-bottom:6pt;">Resumen de movimientos</div>
             <table style="width:100%; border-collapse:collapse; font-size:8.5pt;">
             <?php if ($con_pos): ?>
