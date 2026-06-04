@@ -514,7 +514,7 @@ $nav_modulo = 'reportes';
     <title><?php
     if ($proveedor_id && $prov_nombre) {
         $prov_short = mb_substr(preg_replace('/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]/u', '', $prov_nombre), 0, 10);
-        echo 'Movimientos ' . trim($prov_short) . ' ' . $anio . ' ' . $meses[$mes];
+        echo 'Movimientos ' . trim($prov_short) . ' ' . $anio . sprintf('%02d', $mes);
     } else {
         echo 'Cuenta corriente — ' . APP_NAME;
     }
@@ -540,6 +540,7 @@ $nav_modulo = 'reportes';
             .print-resumen { display: none !important; }
             .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
             tr { page-break-inside: avoid; }
+            tfoot { display: table-row-group; }
             /* Tabla profesional de impresión */
             .print-doc { display: block !important; }
             .pt-logo-mark { color: #1a56b0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
