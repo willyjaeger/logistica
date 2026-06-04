@@ -452,6 +452,8 @@ if ($datos && isset($_GET['export']) && $_GET['export'] === 'excel') {
         $n_cols = 10 + ($con_pos?2:0) + ($con_viaje?2:0) + ($con_saldo?1:0);
         $info_dia = $info['saldo_anterior'] > 0
             ? number_format($info['saldo_anterior'],0).' Pallets × '.$info['dias_entre'].' días'
+                    . ($info['pal_sal'] > 0 ? '&nbsp;&nbsp;·&nbsp;&nbsp;Entregados: '.number_format($info['pal_sal'],0) : '')
+                    . ($info['camiones'] > 0 ? '&nbsp;&nbsp;·&nbsp;&nbsp;Viajes: '.$info['camiones'] : '')
             : '';
         echo '<tr class="day"><td colspan="' . $n_cols . '">'
            . $sem . ' ' . $fecha_fmt
@@ -802,6 +804,8 @@ $nav_modulo = 'reportes';
                 $label_dia = "$sem_pt $d_n/$m_n/$y";
                 $info_dia  = $info['saldo_anterior'] > 0
                     ? number_format($info['saldo_anterior'],0).' Pallets × '.$info['dias_entre'].' días'
+                    . ($info['pal_sal'] > 0 ? '&nbsp;&nbsp;·&nbsp;&nbsp;Entregados: '.number_format($info['pal_sal'],0) : '')
+                    . ($info['camiones'] > 0 ? '&nbsp;&nbsp;·&nbsp;&nbsp;Viajes: '.$info['camiones'] : '')
                     : '';
             ?>
                 <tr class="pt-day-row">
