@@ -58,6 +58,9 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                         <li><a class="dropdown-item" href="<?= url('modules/reportes/cuenta_corriente.php') ?>">
                             <i class="bi bi-journal-text me-2"></i>Cuenta corriente
                         </a></li>
+                        <li><a class="dropdown-item" href="<?= url('modules/reportes/plazo_entrega.php') ?>">
+                            <i class="bi bi-clock-history me-2"></i>Plazo de entrega
+                        </a></li>
                     </ul>
                 </li>
                 <?php endif; ?>
