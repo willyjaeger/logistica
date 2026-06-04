@@ -945,7 +945,7 @@ $nav_modulo = 'reportes';
     <?php else: ?>
 
     <!-- ── Tabla + form guardar camiones ──────────────────── -->
-    <form method="POST" action="<?= url('modules/reportes/cuenta_corriente.php') ?>">
+    <form method="POST" action="<?= url('modules/reportes/cuenta_corriente.php') ?>" class="no-print">
         <input type="hidden" name="proveedor_id" value="<?= $proveedor_id ?>">
         <input type="hidden" name="mes"          value="<?= $mes ?>">
         <input type="hidden" name="anio"         value="<?= $anio ?>">
