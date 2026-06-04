@@ -38,15 +38,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ON DUPLICATE KEY UPDATE saldo = VALUES(saldo)
                 ")->execute([$eid, $pid_post, $anio_post, $mes_post, $saldo_ini_post]);
             }
-            // Guardar precios para pre-llenar el formulario la próxima vez
+            // Guardar precios del mes (historial — permite ver cuándo hubo aumentos)
             $pp_pos   = max(0.0, (float)str_replace(',', '.', $_POST['precio_pos']   ?? '0'));
             $pp_viaje = max(0.0, (float)str_replace(',', '.', $_POST['precio_viaje'] ?? '0'));
             $pp_modo  = in_array($_POST['precio_modo'] ?? '', ['camion','pallet']) ? $_POST['precio_modo'] : 'camion';
             $db->prepare("
-                INSERT INTO cc_precios (empresa_id, proveedor_id, precio_pos, precio_viaje, precio_modo)
-                VALUES (?,?,?,?,?)
+                INSERT INTO cc_precios (empresa_id, proveedor_id, anio, mes, precio_pos, precio_viaje, precio_modo)
+                VALUES (?,?,?,?,?,?,?)
                 ON DUPLICATE KEY UPDATE precio_pos=VALUES(precio_pos), precio_viaje=VALUES(precio_viaje), precio_modo=VALUES(precio_modo)
-            ")->execute([$eid, $pid_post, $pp_pos, $pp_viaje, $pp_modo]);
+            ")->execute([$eid, $pid_post, $anio_post, $mes_post, $pp_pos, $pp_viaje, $pp_modo]);
             $db->commit();
         } catch (Exception $e) {
             $db->rollBack();
@@ -70,11 +70,18 @@ $anio         = max(2020, (int)($_GET['anio']       ?? date('Y')));
 $precio_pos   = (float)str_replace(',', '.', $_GET['precio_pos']   ?? '0');
 $precio_viaje = (float)str_replace(',', '.', $_GET['precio_viaje'] ?? '0');
 $precio_modo  = in_array($_GET['precio_modo'] ?? '', ['camion','pallet']) ? $_GET['precio_modo'] : 'camion';
-// Pre-cargar precios guardados si el usuario no los pasó en la URL
+// Pre-cargar precios: primero busca el mes exacto, luego el más reciente
 if ($proveedor_id > 0 && !isset($_GET['precio_pos'])) {
-    $pcp = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=?");
-    $pcp->execute([$eid, $proveedor_id]);
+    // 1. Precio del mes exacto
+    $pcp = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=?");
+    $pcp->execute([$eid, $proveedor_id, $anio, $mes]);
     $cp_row = $pcp->fetch();
+    if (!$cp_row) {
+        // 2. Precio más reciente (mes anterior o el último registrado)
+        $pcp2 = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=? ORDER BY anio DESC, mes DESC LIMIT 1");
+        $pcp2->execute([$eid, $proveedor_id]);
+        $cp_row = $pcp2->fetch();
+    }
     if ($cp_row) {
         $precio_pos   = (float)$cp_row['precio_pos'];
         $precio_viaje = (float)$cp_row['precio_viaje'];
@@ -794,7 +801,9 @@ $nav_modulo = 'reportes';
         </table>
 
         <?php if ($con_pos || $con_viaje): ?>
-        <div style="margin-top:10pt; padding-top:6pt; border-top:1pt solid #ccc; font-size:8pt; color:#555;">
+        <div style="margin-top:12pt; padding-top:8pt; border-top:2pt solid #111;">
+            <div style="font-size:10pt; font-weight:700; text-transform:uppercase; letter-spacing:.5pt; margin-bottom:5pt;">Resumen de movimientos</div>
+            <div style="font-size:8pt; color:#555;">
             <?php if ($con_pos): ?>
             Almacenaje: <?= number_format($datos['total_posiciones'],1) ?> posiciones × $<?= number_format($precio_pos,2,',','.') ?>/día = <strong><?= fmtMoney($datos['total_costo_pos']) ?></strong>
             <?php endif; ?>
@@ -804,6 +813,7 @@ $nav_modulo = 'reportes';
             <?php endif; ?>
             &nbsp;&nbsp;&nbsp;
             <strong style="font-size:9.5pt;">Total a cobrar: <?= fmtMoney($datos['total_general']) ?></strong>
+            </div>
         </div>
         <?php endif; ?>
 
