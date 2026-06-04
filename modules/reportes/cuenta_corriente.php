@@ -575,6 +575,7 @@ $nav_modulo = 'reportes';
                                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .pt-day-row td { background: #f0f0f0 !important; font-weight: 700;
                              -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .pt-day-row { page-break-after: avoid; }
             .pt-total-row td { background: #1a2a3a !important; color: #fff !important; font-weight: 700;
                                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
