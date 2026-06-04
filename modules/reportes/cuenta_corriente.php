@@ -839,9 +839,31 @@ $nav_modulo = 'reportes';
                     <td style="padding:5pt 5pt; text-align:right;"><?= fmtMoney($datos['total_costo_viajes']) ?></td>
                     <?php endif; ?>
                     <?php if ($con_saldo): ?>
-                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtMoney($datos['total_general']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right;">
+                        <?= fmtMoney(($datos['total_costo_pos'] ?? 0) + ($datos['total_costo_viajes'] ?? 0)) ?>
+                    </td>
                     <?php endif; ?>
                 </tr>
+                <?php foreach ($gastos_mes as $g): ?>
+                <tr style="background:#f5f5f5;">
+                    <td colspan="<?= $pt_cols - 1 ?>" style="padding:3pt 5pt; text-align:right; font-style:italic; font-size:8pt;">
+                        <?= h($g['descripcion']) ?>
+                    </td>
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:600;">
+                        <?= fmtMoney((float)$g['importe']) ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                <?php if ($total_gastos > 0): ?>
+                <tr class="pt-total-row">
+                    <td colspan="<?= $pt_cols - 1 ?>" style="padding:5pt 5pt; text-align:right; font-size:10pt;">
+                        TOTAL A COBRAR <?= strtoupper($meses[$mes]) ?> <?= $anio ?>
+                    </td>
+                    <td style="padding:5pt 5pt; text-align:right; font-size:10pt;">
+                        <?= fmtMoney($datos['total_general']) ?>
+                    </td>
+                </tr>
+                <?php endif; ?>
             </tfoot>
         </table>
 
