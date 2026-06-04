@@ -451,7 +451,7 @@ if ($datos && isset($_GET['export']) && $_GET['export'] === 'excel') {
         // Fila separadora de día
         $n_cols = 10 + ($con_pos?2:0) + ($con_viaje?2:0) + ($con_saldo?1:0);
         $info_dia = $info['saldo_anterior'] > 0
-            ? number_format($info['saldo_anterior'],1).' pal. × '.$info['dias_entre'].' días'
+            ? number_format($info['saldo_anterior'],0).' pal. × '.$info['dias_entre'].' días'
             : '';
         echo '<tr class="day"><td colspan="' . $n_cols . '">'
            . $sem . ' ' . $fecha_fmt
@@ -801,7 +801,7 @@ $nav_modulo = 'reportes';
                 [$y,$m_n,$d_n] = explode('-', $dia);
                 $label_dia = "$sem_pt $d_n/$m_n/$y";
                 $info_dia  = $info['saldo_anterior'] > 0
-                    ? number_format($info['saldo_anterior'],1).' pal. × '.$info['dias_entre'].' días'
+                    ? number_format($info['saldo_anterior'],0).' pal. × '.$info['dias_entre'].' días'
                     : '';
             ?>
                 <tr class="pt-day-row">
