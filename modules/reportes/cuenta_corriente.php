@@ -80,22 +80,49 @@ $anio         = max(2020, (int)($_GET['anio']       ?? date('Y')));
 $precio_pos   = (float)str_replace(',', '.', $_GET['precio_pos']   ?? '0');
 $precio_viaje = (float)str_replace(',', '.', $_GET['precio_viaje'] ?? '0');
 $precio_modo  = in_array($_GET['precio_modo'] ?? '', ['camion','pallet']) ? $_GET['precio_modo'] : 'camion';
-// Pre-cargar precios: primero busca el mes exacto, luego el más reciente
+// Pre-cargar precios desde cc_precios (resiliente a ambas estructuras de tabla)
 if ($proveedor_id > 0 && !isset($_GET['precio_pos'])) {
-    // 1. Precio del mes exacto
-    $pcp = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=?");
-    $pcp->execute([$eid, $proveedor_id, $anio, $mes]);
-    $cp_row = $pcp->fetch();
-    if (!$cp_row) {
-        // 2. Precio más reciente (mes anterior o el último registrado)
-        $pcp2 = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=? ORDER BY anio DESC, mes DESC LIMIT 1");
-        $pcp2->execute([$eid, $proveedor_id]);
-        $cp_row = $pcp2->fetch();
+    $cp_row = false;
+    try {
+        // Intenta con historial por mes
+        $pcp = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=?");
+        $pcp->execute([$eid, $proveedor_id, $anio, $mes]);
+        $cp_row = $pcp->fetch();
+        if (!$cp_row) {
+            $pcp2 = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=? ORDER BY anio DESC, mes DESC LIMIT 1");
+            $pcp2->execute([$eid, $proveedor_id]);
+            $cp_row = $pcp2->fetch();
+        }
+    } catch (Exception $e) {
+        // Fallback: tabla sin columnas anio/mes (migración no aplicada)
+        try {
+            $pcp3 = $db->prepare("SELECT * FROM cc_precios WHERE empresa_id=? AND proveedor_id=?");
+            $pcp3->execute([$eid, $proveedor_id]);
+            $cp_row = $pcp3->fetch();
+        } catch (Exception $e2) {}
     }
     if ($cp_row) {
         $precio_pos   = (float)$cp_row['precio_pos'];
         $precio_viaje = (float)$cp_row['precio_viaje'];
         $precio_modo  = $cp_row['precio_modo'];
+    }
+}
+// Auto-guardar precios cuando el usuario hace clic en "Ver" con precios en la URL
+if ($proveedor_id > 0 && isset($_GET['precio_pos']) && ($precio_pos > 0 || $precio_viaje > 0)) {
+    try {
+        $db->prepare("
+            INSERT INTO cc_precios (empresa_id, proveedor_id, anio, mes, precio_pos, precio_viaje, precio_modo)
+            VALUES (?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE precio_pos=VALUES(precio_pos), precio_viaje=VALUES(precio_viaje), precio_modo=VALUES(precio_modo)
+        ")->execute([$eid, $proveedor_id, $anio, $mes, $precio_pos, $precio_viaje, $precio_modo]);
+    } catch (Exception $e) {
+        try {
+            $db->prepare("
+                INSERT INTO cc_precios (empresa_id, proveedor_id, precio_pos, precio_viaje, precio_modo)
+                VALUES (?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE precio_pos=VALUES(precio_pos), precio_viaje=VALUES(precio_viaje), precio_modo=VALUES(precio_modo)
+            ")->execute([$eid, $proveedor_id, $precio_pos, $precio_viaje, $precio_modo]);
+        } catch (Exception $e2) {}
     }
 }
 // Cargar gastos del mes (o copiar del mes anterior si se solicitó)
