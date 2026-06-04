@@ -71,6 +71,11 @@ $nav_modulo = 'reportes';
     <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
     <style>
         body { background: #eef1f6; }
+        @media print {
+            body { background: #fff; }
+            nav, .navbar { display: none !important; }
+            .no-print { display: none !important; }
+        }
         .card { border: none !important; box-shadow: 0 2px 8px rgba(0,0,0,.10) !important; }
         #tabla-plazos thead th {
             background: #2c3e50; color: #fff;

@@ -519,6 +519,7 @@ $nav_modulo = 'reportes';
         body { background: #eef1f6; }
         @media print {
             body { background: #fff; font-size: 11pt; }
+            nav, .navbar { display: none !important; }
             .no-print, .row-detail { display: none !important; }
             .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
             /* Tabla profesional de impresión */
