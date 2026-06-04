@@ -524,12 +524,22 @@ $nav_modulo = 'reportes';
     <link rel="stylesheet" href="<?= url('assets/css/app.css') ?>">
     <style>
         body { background: #eef1f6; }
+        @page {
+            margin: 1.5cm 1.2cm;
+            @bottom-right {
+                content: "Pág. " counter(page) " / " counter(pages);
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 7.5pt;
+                color: #666;
+            }
+        }
         @media print {
             body { background: #fff; font-size: 11pt; }
             nav, .navbar { display: none !important; }
             .no-print, .row-detail { display: none !important; }
             .print-resumen { display: none !important; }
             .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+            tr { page-break-inside: avoid; }
             /* Tabla profesional de impresión */
             .print-doc { display: block !important; }
             .pt-logo-mark { color: #1a56b0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -864,7 +874,7 @@ $nav_modulo = 'reportes';
                 <?php if ($total_gastos > 0): ?>
                 <tr class="pt-total-row">
                     <td colspan="<?= $pt_cols - 1 ?>" style="padding:5pt 5pt; text-align:right; font-size:10pt;">
-                        TOTAL A COBRAR <?= strtoupper($meses[$mes]) ?> <?= $anio ?>
+                        TOTAL <?= strtoupper($meses[$mes]) ?> <?= $anio ?>
                     </td>
                     <td style="padding:5pt 5pt; text-align:right; font-size:10pt;">
                         <?= fmtMoney($datos['total_general']) ?>

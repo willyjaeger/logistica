@@ -58,6 +58,43 @@ $remitos = $stmt->fetchAll();
 $dias_validos = array_filter(array_column($remitos, 'dias'), fn($d) => $d >= 0);
 $promedio     = count($dias_validos) ? round(array_sum($dias_validos) / count($dias_validos), 1) : null;
 
+// ── Export Excel ──────────────────────────────────────────────
+if ($remitos && isset($_GET['export']) && $_GET['export'] === 'excel') {
+    $prov_label = $proveedor_id
+        ? preg_replace('/[^a-z0-9áéíóúñ\s]/i', '_', array_column($proveedores, 'nombre', 'id')[$proveedor_id] ?? 'Prov')
+        : 'Todos';
+    $fname = 'PlazoEntrega_' . mb_substr($prov_label, 0, 20) . '.xls';
+    header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $fname . '"');
+    header('Cache-Control: max-age=0');
+    echo "\xEF\xBB\xBF";
+    echo '<html><head><meta charset="UTF-8"><style>
+        th { background:#2c3e50; color:#fff; font-weight:bold; }
+        td,th { font-family:Calibri,Arial,sans-serif; font-size:11pt; }
+    </style></head><body><table border="1" cellspacing="0" cellpadding="4">';
+    echo '<tr><td colspan="6" style="font-size:14pt;font-weight:bold">Plazo de entrega</td></tr>';
+    if ($promedio !== null)
+        echo '<tr><td colspan="6">Promedio: ' . $promedio . ' días — ' . count($remitos) . ' remitos</td></tr>';
+    echo '<tr><th>Ingreso</th><th>Entrega</th><th>Días</th><th>Remito</th><th>Cliente</th>'
+       . ($proveedor_id ? '' : '<th>Proveedor</th>')
+       . '<th>Pallets</th></tr>';
+    foreach ($remitos as $r) {
+        [$yi,$mi,$di] = explode('-', $r['fecha_ingreso']);
+        [$ye,$me,$de] = explode('-', $r['fecha_entrega']);
+        echo '<tr>';
+        echo '<td>' . "$di/$mi/$yi" . '</td>';
+        echo '<td>' . "$de/$me/$ye" . '</td>';
+        echo '<td style="text-align:center">' . (int)$r['dias'] . '</td>';
+        echo '<td>' . htmlspecialchars($r['nro_remito_propio']) . '</td>';
+        echo '<td>' . htmlspecialchars($r['cliente']) . '</td>';
+        if (!$proveedor_id) echo '<td>' . htmlspecialchars($r['proveedor'] ?? '') . '</td>';
+        echo '<td style="text-align:center">' . ($r['total_pallets'] > 0 ? number_format($r['total_pallets'],1) : '') . '</td>';
+        echo '</tr>';
+    }
+    echo '</table></body></html>';
+    exit;
+}
+
 $nav_modulo = 'reportes';
 ?>
 <!DOCTYPE html>
@@ -101,9 +138,15 @@ $nav_modulo = 'reportes';
             <i class="bi bi-clock-history me-2 text-primary"></i>Plazo de entrega
         </h5>
         <?php if ($remitos): ?>
-        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm no-print">
-            <i class="bi bi-printer me-1"></i>Imprimir
-        </button>
+        <?php $excel_url = url('modules/reportes/plazo_entrega.php') . '?' . http_build_query(array_filter(['proveedor_id'=>$proveedor_id,'desde'=>$desde,'hasta'=>$hasta,'export'=>'excel'])); ?>
+        <div class="d-flex gap-2 no-print">
+            <a href="<?= $excel_url ?>" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-file-earmark-excel me-1"></i>Excel
+            </a>
+            <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-printer me-1"></i>Imprimir
+            </button>
+        </div>
         <?php endif; ?>
     </div>
 
@@ -142,14 +185,21 @@ $nav_modulo = 'reportes';
 
     <!-- Resumen -->
     <?php if ($promedio !== null): ?>
-    <div class="alert alert-info py-2 mb-3">
-        <i class="bi bi-bar-chart me-2"></i>
-        <strong><?= count($remitos) ?></strong> remitos entregados
-        &nbsp;·&nbsp;
-        Promedio: <strong><?= $promedio ?> días</strong>
-        <?php if ($desde || $hasta): ?>
-        &nbsp;·&nbsp; <span class="text-muted small"><?= $desde ? 'desde '.$desde : '' ?> <?= $hasta ? 'hasta '.$hasta : '' ?></span>
-        <?php endif; ?>
+    <div class="alert alert-info py-3 mb-3 d-flex align-items-center gap-4">
+        <div>
+            <div class="text-muted small text-uppercase fw-semibold mb-1">Promedio de entrega</div>
+            <div style="font-size:2.2rem; font-weight:900; line-height:1; color:#0d47a1;">
+                <?= $promedio ?> <span style="font-size:1rem; font-weight:600;">días</span>
+            </div>
+        </div>
+        <div class="vr"></div>
+        <div class="text-muted small">
+            <strong class="text-dark"><?= count($remitos) ?></strong> remitos entregados
+            <?php if ($desde || $hasta): ?>
+            <br><?= $desde ? 'desde '.date('d/m/Y', strtotime($desde)) : '' ?>
+            <?= $hasta ? ' hasta '.date('d/m/Y', strtotime($hasta)) : '' ?>
+            <?php endif; ?>
+        </div>
     </div>
     <?php endif; ?>
 
