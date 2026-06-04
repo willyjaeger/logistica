@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ON DUPLICATE KEY UPDATE saldo = VALUES(saldo)
                 ")->execute([$eid, $pid_post, $anio_post, $mes_post, $saldo_ini_post]);
             }
-            // Guardar precios del mes (historial — permite ver cuándo hubo aumentos)
+            // Guardar precios del mes (historial)
             $pp_pos   = max(0.0, (float)str_replace(',', '.', $_POST['precio_pos']   ?? '0'));
             $pp_viaje = max(0.0, (float)str_replace(',', '.', $_POST['precio_viaje'] ?? '0'));
             $pp_modo  = in_array($_POST['precio_modo'] ?? '', ['camion','pallet']) ? $_POST['precio_modo'] : 'camion';
@@ -47,6 +47,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?,?,?,?,?,?,?)
                 ON DUPLICATE KEY UPDATE precio_pos=VALUES(precio_pos), precio_viaje=VALUES(precio_viaje), precio_modo=VALUES(precio_modo)
             ")->execute([$eid, $pid_post, $anio_post, $mes_post, $pp_pos, $pp_viaje, $pp_modo]);
+            // Guardar gastos adicionales (reemplaza los del mes)
+            $db->prepare("DELETE FROM cc_gastos WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=?")
+               ->execute([$eid, $pid_post, $anio_post, $mes_post]);
+            foreach (($_POST['gastos'] ?? []) as $ord => $g) {
+                $desc = trim($g['descripcion'] ?? '');
+                $imp  = max(0.0, (float)str_replace(',', '.', $g['importe'] ?? '0'));
+                if ($desc === '' || $imp <= 0) continue;
+                $db->prepare("INSERT INTO cc_gastos (empresa_id, proveedor_id, anio, mes, descripcion, importe, orden) VALUES (?,?,?,?,?,?,?)")
+                   ->execute([$eid, $pid_post, $anio_post, $mes_post, $desc, $imp, (int)$ord]);
+            }
             $db->commit();
         } catch (Exception $e) {
             $db->rollBack();
@@ -88,6 +98,24 @@ if ($proveedor_id > 0 && !isset($_GET['precio_pos'])) {
         $precio_modo  = $cp_row['precio_modo'];
     }
 }
+// Cargar gastos del mes (o copiar del mes anterior si se solicitó)
+$gastos_mes = [];
+if ($proveedor_id > 0) {
+    $copiar = isset($_GET['copiar_gastos']) && $proveedor_id > 0;
+    if ($copiar) {
+        // Mes anterior
+        $mes_ant  = $mes  === 1 ? 12 : $mes - 1;
+        $anio_ant = $mes  === 1 ? $anio - 1 : $anio;
+        $gq = $db->prepare("SELECT descripcion, importe, orden FROM cc_gastos WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=? ORDER BY orden");
+        $gq->execute([$eid, $proveedor_id, $anio_ant, $mes_ant]);
+    } else {
+        $gq = $db->prepare("SELECT descripcion, importe, orden FROM cc_gastos WHERE empresa_id=? AND proveedor_id=? AND anio=? AND mes=? ORDER BY orden");
+        $gq->execute([$eid, $proveedor_id, $anio, $mes]);
+    }
+    $gastos_mes = $gq->fetchAll();
+}
+$total_gastos = array_sum(array_column($gastos_mes, 'importe'));
+
 $saldo_ini_get = array_key_exists('saldo_ini', $_GET)
     ? max(0.0, (float)str_replace(',', '.', $_GET['saldo_ini']))
     : null;
@@ -318,7 +346,7 @@ if ($proveedor_id > 0) {
     // total_costo_pos viene acumulado en $saldo_pos_acum del loop de eventos
     $total_costo_pos    = $precio_pos   > 0 ? $saldo_pos_acum : null;
     $total_costo_viajes = $precio_viaje > 0 ? $total_costo_viajes_sum                  : null;
-    $total_general      = ($total_costo_pos ?? 0) + ($total_costo_viajes ?? 0);
+    $total_general      = ($total_costo_pos ?? 0) + ($total_costo_viajes ?? 0) + $total_gastos;
 
     $datos = compact(
         'dias', 'total_posiciones', 'total_ingresado', 'total_salido', 'stock_actual',
@@ -456,6 +484,20 @@ if ($datos && isset($_GET['export']) && $_GET['export'] === 'excel') {
     if ($con_viaje) { echo '<td style="text-align:right">' . ($modo_camion ? $datos['total_camiones'] : number_format($datos['total_pal_viajes'],1)) . '</td>'; echo '<td style="text-align:right">' . number_format($datos['total_costo_viajes'],2,',','.') . '</td>'; }
     if ($con_saldo) { echo '<td style="text-align:right">' . number_format($datos['total_general'],2,',','.') . '</td>'; }
     echo '</tr>';
+    // Gastos adicionales
+    if ($total_gastos > 0) {
+        $n_cols_xls = 10 + ($con_pos?2:0) + ($con_viaje?2:0) + ($con_saldo?1:0);
+        echo '<tr><td colspan="' . $n_cols_xls . '"></td></tr>';
+        echo '<tr><td colspan="' . $n_cols_xls . '" style="font-weight:bold;font-size:11pt;">Gastos adicionales</td></tr>';
+        foreach ($gastos_mes as $g) {
+            echo '<tr>';
+            echo '<td colspan="' . ($n_cols_xls - 1) . '">' . htmlspecialchars($g['descripcion']) . '</td>';
+            echo '<td style="text-align:right">' . number_format((float)$g['importe'],2,',','.') . '</td>';
+            echo '</tr>';
+        }
+        echo '<tr class="tot"><td colspan="' . ($n_cols_xls - 1) . '" style="text-align:right;font-weight:bold;">TOTAL A COBRAR</td>';
+        echo '<td style="text-align:right;font-weight:bold;">' . number_format($datos['total_general'],2,',','.') . '</td></tr>';
+    }
     echo '</table></body></html>';
     exit;
 }
@@ -800,20 +842,36 @@ $nav_modulo = 'reportes';
             </tfoot>
         </table>
 
-        <?php if ($con_pos || $con_viaje): ?>
+        <?php if ($con_pos || $con_viaje || $total_gastos > 0): ?>
         <div style="margin-top:12pt; padding-top:8pt; border-top:2pt solid #111;">
-            <div style="font-size:10pt; font-weight:700; text-transform:uppercase; letter-spacing:.5pt; margin-bottom:5pt;">Resumen de movimientos</div>
-            <div style="font-size:8pt; color:#555;">
+            <div style="font-size:10pt; font-weight:700; text-transform:uppercase; letter-spacing:.5pt; margin-bottom:6pt;">Resumen de movimientos</div>
+            <table style="width:100%; border-collapse:collapse; font-size:8.5pt;">
             <?php if ($con_pos): ?>
-            Almacenaje: <?= number_format($datos['total_posiciones'],1) ?> posiciones × $<?= number_format($precio_pos,2,',','.') ?>/día = <strong><?= fmtMoney($datos['total_costo_pos']) ?></strong>
+            <tr>
+                <td style="padding:2pt 0; color:#555;">Almacenaje</td>
+                <td style="padding:2pt 0; color:#555; text-align:center;"><?= number_format($datos['total_posiciones'],1) ?> pos. × $<?= number_format($precio_pos,2,',','.') ?>/día</td>
+                <td style="padding:2pt 0; text-align:right; font-weight:600;"><?= fmtMoney($datos['total_costo_pos']) ?></td>
+            </tr>
             <?php endif; ?>
-            <?php if ($con_pos && $con_viaje): ?>&nbsp;&nbsp;+&nbsp;&nbsp;<?php endif; ?>
             <?php if ($con_viaje): ?>
-            Distribución: <?= $modo_camion ? $datos['total_camiones'].' camiones' : fmtPal($datos['total_pal_viajes']).' pal.' ?> × $<?= number_format($precio_viaje,2,',','.') ?>/<?= $modo_camion ? 'camión' : 'pallet' ?> = <strong><?= fmtMoney($datos['total_costo_viajes']) ?></strong>
+            <tr>
+                <td style="padding:2pt 0; color:#555;">Distribución</td>
+                <td style="padding:2pt 0; color:#555; text-align:center;"><?= $modo_camion ? $datos['total_camiones'].' camiones' : fmtPal($datos['total_pal_viajes']).' pal.' ?> × $<?= number_format($precio_viaje,2,',','.') ?>/<?= $modo_camion ? 'camión' : 'pallet' ?></td>
+                <td style="padding:2pt 0; text-align:right; font-weight:600;"><?= fmtMoney($datos['total_costo_viajes']) ?></td>
+            </tr>
             <?php endif; ?>
-            &nbsp;&nbsp;&nbsp;
-            <strong style="font-size:9.5pt;">Total a cobrar: <?= fmtMoney($datos['total_general']) ?></strong>
-            </div>
+            <?php foreach ($gastos_mes as $g): ?>
+            <tr>
+                <td style="padding:2pt 0; color:#555;"><?= h($g['descripcion']) ?></td>
+                <td></td>
+                <td style="padding:2pt 0; text-align:right; font-weight:600;"><?= fmtMoney((float)$g['importe']) ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr style="border-top:1pt solid #111;">
+                <td colspan="2" style="padding:4pt 0; font-weight:700; font-size:10pt; text-transform:uppercase;">Total a cobrar</td>
+                <td style="padding:4pt 0; text-align:right; font-weight:900; font-size:11pt;"><?= fmtMoney($datos['total_general']) ?></td>
+            </tr>
+            </table>
         </div>
         <?php endif; ?>
 
@@ -1110,6 +1168,62 @@ $nav_modulo = 'reportes';
         </div><!-- card-body -->
     </div><!-- card -->
 
+    <!-- ── Gastos adicionales ───────────────────────────────── -->
+    <div class="card mt-3 no-print">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+            <span class="fw-semibold">
+                <i class="bi bi-receipt me-2 text-warning"></i>Gastos adicionales
+            </span>
+            <?php
+            $mes_ant_url  = $mes  === 1 ? 12 : $mes - 1;
+            $anio_ant_url = $mes  === 1 ? $anio - 1 : $anio;
+            $copiar_url   = url('modules/reportes/cuenta_corriente.php') . '?' . http_build_query([
+                'proveedor_id' => $proveedor_id, 'mes' => $mes, 'anio' => $anio,
+                'copiar_gastos' => 1,
+            ]);
+            ?>
+            <a href="<?= $copiar_url ?>" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-clipboard-arrow-up me-1"></i>Copiar del mes anterior
+            </a>
+        </div>
+        <div class="card-body pb-2">
+            <table class="table table-sm mb-2" id="tabla-gastos">
+                <thead>
+                    <tr>
+                        <th>Descripción</th>
+                        <th class="text-end" style="width:160px">Importe</th>
+                        <th style="width:36px"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-gastos">
+                <?php foreach ($gastos_mes as $gi => $g): ?>
+                <tr class="gasto-row">
+                    <td><input type="text" name="gastos[<?= $gi ?>][descripcion]"
+                               class="form-control form-control-sm"
+                               value="<?= h($g['descripcion']) ?>" placeholder="Concepto..."></td>
+                    <td><div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="gastos[<?= $gi ?>][importe]"
+                               class="form-control form-control-sm text-end gasto-imp"
+                               step="0.01" min="0"
+                               value="<?= number_format((float)$g['importe'], 2, '.', '') ?>">
+                    </div></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger btn-del-gasto"><i class="bi bi-x"></i></button></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <div class="d-flex align-items-center justify-content-between">
+                <button type="button" id="btn-add-gasto" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-plus me-1"></i>Agregar gasto
+                </button>
+                <span class="fw-semibold text-warning" id="total-gastos-display">
+                    Total gastos: <?= fmtMoney($total_gastos) ?>
+                </span>
+            </div>
+        </div>
+    </div>
+
     <div class="d-flex justify-content-end mt-2 no-print">
         <button type="submit" class="btn btn-warning">
             <i class="bi bi-floppy me-1"></i>Guardar
@@ -1180,6 +1294,43 @@ function toggleTodo() {
         ? '<i class="bi bi-arrows-collapse me-1"></i>Colapsar todo'
         : '<i class="bi bi-arrows-expand me-1"></i>Expandir todo';
 }
+
+// ── Gastos adicionales ──────────────────────────────────────
+let gastoIdx = document.querySelectorAll('.gasto-row').length;
+
+function recalcGastos() {
+    let total = 0;
+    document.querySelectorAll('.gasto-imp').forEach(inp => total += parseFloat(inp.value) || 0);
+    const fmt = '$ ' + total.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('total-gastos-display').textContent = 'Total gastos: ' + fmt;
+}
+
+document.getElementById('btn-add-gasto')?.addEventListener('click', function() {
+    const tbody = document.getElementById('tbody-gastos');
+    const tr = document.createElement('tr');
+    tr.className = 'gasto-row';
+    tr.innerHTML = `<td><input type="text" name="gastos[${gastoIdx}][descripcion]"
+                        class="form-control form-control-sm" placeholder="Concepto..."></td>
+                    <td><div class="input-group input-group-sm">
+                        <span class="input-group-text">$</span>
+                        <input type="number" name="gastos[${gastoIdx}][importe]"
+                               class="form-control form-control-sm text-end gasto-imp"
+                               step="0.01" min="0" value="0">
+                    </div></td>
+                    <td><button type="button" class="btn btn-sm btn-outline-danger btn-del-gasto"><i class="bi bi-x"></i></button></td>`;
+    tbody.appendChild(tr);
+    tr.querySelector('.btn-del-gasto').addEventListener('click', function() { tr.remove(); recalcGastos(); });
+    tr.querySelector('.gasto-imp').addEventListener('input', recalcGastos);
+    tr.querySelector('input[type=text]').focus();
+    gastoIdx++;
+});
+
+document.querySelectorAll('.btn-del-gasto').forEach(btn =>
+    btn.addEventListener('click', function() { this.closest('tr').remove(); recalcGastos(); })
+);
+document.querySelectorAll('.gasto-imp').forEach(inp =>
+    inp.addEventListener('input', recalcGastos)
+);
 </script>
 </body>
 </html>
