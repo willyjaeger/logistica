@@ -384,7 +384,7 @@ if ($proveedor_id > 0) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-function fmtPal(float $p): string   { return $p > 0 ? number_format($p, 1) : '—'; }
+function fmtPal(float $p): string   { return $p > 0 ? number_format($p, 0) : '—'; }
 function fmtMoney(float $v): string { return '$&nbsp;' . number_format($v, 2, ',', '.'); }
 function fmtDia(string $ymd): string {
     [$y,$m,$d] = explode('-', $ymd); return "$d/$m/$y";
@@ -733,7 +733,7 @@ $nav_modulo = 'reportes';
             <tr>
                 <td style="vertical-align:middle; width:60%;">
                     <div style="display:flex; align-items:center; gap:10pt;">
-                        <img src="<?= url('assets/img/icon-192.png') ?>" style="height:44pt; width:44pt; border-radius:6pt;">
+                        <img src="<?= url('assets/img/icon-192.png') ?>" style="height:72pt; width:72pt; border-radius:8pt;">
                         <div>
                             <div class="pt-logo-mark" style="font-size:20pt; font-weight:900; letter-spacing:-0.5pt; line-height:1;">Logax</div>
                             <div style="font-size:7.5pt; color:#555; text-transform:uppercase; letter-spacing:1pt;">Sistema de logística</div>
