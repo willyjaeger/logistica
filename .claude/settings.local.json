@@ -17,7 +17,8 @@
       "Bash(python3 -c \"from PIL import Image; print\\('pillow ok'\\)\")",
       "Bash(python3 -m pip install Pillow --quiet)",
       "Bash(python3 -)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }
