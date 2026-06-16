@@ -1408,6 +1408,36 @@ document.querySelectorAll('.btn-del-gasto').forEach(btn =>
 document.querySelectorAll('.gasto-imp').forEach(inp =>
     inp.addEventListener('input', recalcGastos)
 );
+
+// ── Auto-cargar precios al cambiar el proveedor ─────────────
+(function() {
+    const selProv   = document.querySelector('select[name=proveedor_id]');
+    const selMes    = document.querySelector('select[name=mes]');
+    const selAnio   = document.querySelector('select[name=anio]');
+    const inpPos    = document.querySelector('input[name=precio_pos]');
+    const inpViaje  = document.querySelector('input[name=precio_viaje]');
+    const selModo   = document.querySelector('select[name=precio_modo]');
+    if (!selProv || !inpPos) return;
+
+    function cargarPrecios() {
+        const pid  = selProv.value;
+        const mes  = selMes  ? selMes.value  : '';
+        const anio = selAnio ? selAnio.value : '';
+        if (!pid) return;
+        const url = '<?= url('modules/reportes/cc_precios_ajax.php') ?>'
+                  + '?proveedor_id=' + pid + '&mes=' + mes + '&anio=' + anio;
+        fetch(url)
+            .then(r => r.json())
+            .then(function(d) {
+                if (!d.found) return;
+                inpPos.value   = d.precio_pos   > 0 ? d.precio_pos   : '';
+                inpViaje.value = d.precio_viaje > 0 ? d.precio_viaje : '';
+                if (selModo) selModo.value = d.precio_modo;
+            });
+    }
+
+    selProv.addEventListener('change', cargarPrecios);
+})();
 </script>
 </body>
 </html>

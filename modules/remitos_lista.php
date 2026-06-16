@@ -247,7 +247,7 @@ $nav_modulo = 'remitos';
             <input type="date" name="hasta" class="form-control form-control-sm"
                    value="<?= h($hasta) ?>" placeholder="Hasta">
         </div>
-        <div class="col-auto">
+        <div class="col-auto d-flex gap-1 flex-wrap">
             <button type="submit" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-search me-1"></i>Filtrar
             </button>
@@ -256,6 +256,19 @@ $nav_modulo = 'remitos';
             <?php endif; ?>
         </div>
     </form>
+
+    <?php
+    $export_params = array_filter(['q' => $q, 'estado' => $estado, 'desde' => $desde, 'hasta' => $hasta]);
+    $export_url = url('modules/remitos_exportar.php') . ($export_params ? '?' . http_build_query($export_params) : '');
+    ?>
+    <div class="d-flex justify-content-end mb-2">
+        <a href="<?= $export_url ?>" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar Excel
+            <?php if ($q || $estado || $desde || $hasta): ?>
+            <span class="badge bg-success ms-1" style="font-size:.65rem">filtrado</span>
+            <?php endif; ?>
+        </a>
+    </div>
 
     <!-- Tabla -->
     <div class="card border-0 shadow-sm">

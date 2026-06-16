@@ -80,10 +80,11 @@ if (isset($_GET['export'])) {
     header('Content-Disposition: attachment; filename="entregas_' . date('Ymd') . '.csv"');
     $out = fopen('php://output', 'w');
     fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM para Excel
-    fputcsv($out, ['Fecha','Estado','Transportista','Patente','Chofer','Remitos','Pallets'], ';');
+    fputcsv($out, ['Nro','Fecha','Estado','Transportista','Patente','Chofer','Remitos','Pallets'], ';');
     foreach ($entregas as $e) {
         [$y,$m,$d] = array_pad(explode('-', $e['fecha'] ?? '0000-00-00'), 3, '00');
         fputcsv($out, [
+            '#' . $e['id'],
             "$d/$m/$y",
             $estado_txt[$e['estado']] ?? $e['estado'],
             $e['transportista'] ?? '',
@@ -231,6 +232,7 @@ $nav_modulo = 'entregas';
                     <thead>
                         <tr>
                             <th style="width:28px" class="no-print"></th>
+                            <th class="text-center" style="width:60px">Nro</th>
                             <th>Fecha</th>
                             <th>Estado</th>
                             <th>Transportista</th>
@@ -254,6 +256,9 @@ $nav_modulo = 'entregas';
                             <button type="button" class="btn btn-expand btn-sm btn-outline-secondary rounded-circle">
                                 <i class="bi bi-chevron-right"></i>
                             </button>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-dark font-monospace">#<?= $e['id'] ?></span>
                         </td>
                         <td class="fw-semibold"><?= "$d/$m/$y" ?></td>
                         <td><span class="badge <?= $eb_cls ?>"><?= $eb_lbl ?></span></td>
@@ -286,7 +291,7 @@ $nav_modulo = 'entregas';
                         </td>
                     </tr>
                     <tr id="items-<?= $e['id'] ?>" class="row-remitos d-none">
-                        <td colspan="9">
+                        <td colspan="10">
                             <?php if ($items): ?>
                             <table class="table table-sm mb-0">
                                 <thead>

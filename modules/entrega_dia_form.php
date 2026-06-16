@@ -146,27 +146,16 @@ function renderCambiarEstado(int $edit_id, array $entrega, string $back): void {
                     </button>
                 </form>
                 <?php endif; ?>
-                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
-                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
-                    <input type="hidden" name="nuevo_estado" value="completada">
-                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
-                    <input type="hidden" name="back"         value="<?= h($back) ?>">
-                    <button type="submit" class="btn btn-success btn-sm"
-                            onclick="return confirm('¿Marcar como completada? Los remitos quedarán como entregados.')">
-                        <i class="bi bi-check-circle me-1"></i>Completada
-                    </button>
-                </form>
-                <form method="POST" action="<?= url('modules/entrega_completar.php') ?>">
-                    <input type="hidden" name="entrega_id"   value="<?= $edit_id ?>">
-                    <input type="hidden" name="nuevo_estado" value="con_incidencias">
-                    <input type="hidden" name="fecha"        value="<?= h($entrega['fecha']) ?>">
-                    <input type="hidden" name="back"         value="<?= h($back) ?>">
-                    <button type="submit" class="btn btn-outline-warning btn-sm"
-                            onclick="return confirm('¿Registrar con incidencias? Los remitos quedarán como entregados.')">
-                        <i class="bi bi-exclamation-triangle me-1"></i>Con incidencias
-                    </button>
-                </form>
+                <a href="<?= url('modules/entrega_completar_form.php') ?>?entrega_id=<?= $edit_id ?>&back=<?= urlencode($back) ?>&fecha=<?= urlencode($entrega['fecha']) ?>"
+                   class="btn btn-success btn-sm">
+                    <i class="bi bi-check-circle me-1"></i>Cerrar entrega
+                </a>
             </div>
+            <?php else: ?>
+                <a href="<?= url('modules/entrega_completar_form.php') ?>?entrega_id=<?= $edit_id ?>&back=<?= urlencode($back) ?>&fecha=<?= urlencode($entrega['fecha']) ?>"
+                   class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-pencil-square me-1"></i>Corregir resultado
+                </a>
             <?php endif; ?>
         </div>
     </div>

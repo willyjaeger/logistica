@@ -584,6 +584,69 @@ $nav_modulo = 'remitos';
         </div>
 
     </form>
+
+    <?php if ($edit_id > 0):
+        // Historial de entregas donde aparece este remito
+        try {
+            $sh = $db->prepare("
+                SELECT e.id, e.fecha, e.estado AS entrega_estado,
+                       tr.nombre AS trans_nombre, cam.patente, ch.nombre AS cho_nombre,
+                       er.resultado, er.observacion
+                FROM entrega_remitos er
+                JOIN entregas e ON e.id = er.entrega_id
+                LEFT JOIN transportistas tr  ON tr.id = e.transportista_id
+                LEFT JOIN camiones       cam ON cam.id = e.camion_id
+                LEFT JOIN choferes       ch  ON ch.id = e.chofer_id
+                WHERE er.remito_id = ?
+                ORDER BY e.fecha ASC, e.id ASC
+            ");
+            $sh->execute([$edit_id]);
+            $historial = $sh->fetchAll();
+        } catch (Exception $e) {
+            $historial = [];
+        }
+        if ($historial):
+    ?>
+    <div class="seccion mt-3">
+        <div class="seccion-titulo"><i class="bi bi-clock-history me-1"></i>Historial de entregas</div>
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th style="font-size:.75rem">Fecha</th>
+                    <th style="font-size:.75rem">Transportista</th>
+                    <th style="font-size:.75rem">Patente</th>
+                    <th style="font-size:.75rem">Resultado</th>
+                    <th style="font-size:.75rem">Observación</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($historial as $h): ?>
+            <tr>
+                <td class="text-nowrap">
+                    <a href="<?= url('modules/entrega_dia_form.php') ?>?id=<?= $h['id'] ?>&back=lista"
+                       class="text-decoration-none">
+                        <?= h(date('d/m/Y', strtotime($h['fecha']))) ?>
+                    </a>
+                </td>
+                <td><?= h($h['trans_nombre'] ?? '—') ?></td>
+                <td class="font-monospace"><?= h($h['patente'] ?? '—') ?></td>
+                <td>
+                    <?php if ($h['resultado'] === 'entregado'): ?>
+                        <span class="badge bg-success">Entregado</span>
+                    <?php elseif ($h['resultado'] === 'no_entregado'): ?>
+                        <span class="badge bg-warning text-dark">No entregado</span>
+                    <?php else: ?>
+                        <span class="badge bg-secondary">En curso</span>
+                    <?php endif; ?>
+                </td>
+                <td class="text-muted small"><?= h($h['observacion'] ?? '') ?></td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; endif; ?>
+
 </div><!-- /container -->
 
 
