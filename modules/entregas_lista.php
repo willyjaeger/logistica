@@ -108,6 +108,7 @@ $estado_badge = [
 ];
 
 $nav_modulo = 'entregas';
+$auto_refresh = 60;
 ?>
 <!DOCTYPE html>
 <html lang="es">

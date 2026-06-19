@@ -142,4 +142,46 @@ document.addEventListener('focusin', function(e) {
         t.select();
     }
 });
+
+<?php if (!empty($auto_refresh) && $auto_refresh > 0): ?>
+// ── Auto-refresh de listados ────────────────────────────────────
+(function() {
+    var delay = <?= (int)$auto_refresh ?> * 1000;
+    var timer;
+    var key = 'ar_scroll_' + location.pathname + location.search;
+
+    window.addEventListener('load', function() {
+        var saved = sessionStorage.getItem(key);
+        if (saved) {
+            window.scrollTo(0, parseInt(saved));
+            sessionStorage.removeItem(key);
+        }
+    });
+
+    function doReload() {
+        var el = document.activeElement;
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+            resetTimer();
+            return;
+        }
+        if (document.querySelector('.modal.show')) {
+            resetTimer();
+            return;
+        }
+        sessionStorage.setItem(key, String(window.scrollY));
+        location.reload();
+    }
+
+    function resetTimer() {
+        clearTimeout(timer);
+        timer = setTimeout(doReload, delay);
+    }
+
+    ['mousedown','keydown','touchstart'].forEach(function(evt) {
+        document.addEventListener(evt, resetTimer, { passive: true });
+    });
+
+    resetTimer();
+})();
+<?php endif; ?>
 </script>

@@ -180,6 +180,7 @@ foreach ($cards_dia as &$arr) {
 unset($arr);
 
 $nav_modulo = 'agenda';
+$auto_refresh = 60;
 ?>
 <!DOCTYPE html>
 <html lang="es">

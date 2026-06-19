@@ -129,6 +129,7 @@ function sort_icon(string $col, string $sort, string $dir): string {
 }
 
 $nav_modulo = 'remitos';
+$auto_refresh = 60;
 ?>
 <!DOCTYPE html>
 <html lang="es">

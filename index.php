@@ -119,6 +119,7 @@ $estado_label = [
 ];
 
 $nav_modulo = 'panel';
+$auto_refresh = 60;
 ?>
 <!DOCTYPE html>
 <html lang="es">

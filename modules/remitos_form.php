@@ -252,8 +252,29 @@ $nav_modulo = 'remitos';
         <input type="hidden" name="total_pallets" id="total_pallets_hidden"
                value="<?= $edit_id > 0 ? h($remito['total_pallets'] ?? '0') : '0' ?>">
 
+        <!-- ─── TIPO DE REMITO ────────────────────────────────── -->
+        <?php
+        $ef_val = $form_post
+            ? !empty($form_post['entrega_fisica'])
+            : (isset($remito['entrega_fisica']) ? (bool)$remito['entrega_fisica'] : true);
+        ?>
+        <div class="d-flex align-items-center gap-2 p-2 rounded mb-2"
+             id="ef_wrap"
+             style="background:<?= $ef_val ? '#f0fdf4' : '#fff7ed' ?>;border:1px solid <?= $ef_val ? '#bbf7d0' : '#fed7aa' ?>">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch"
+                       name="entrega_fisica" id="chk_ef" value="1"
+                       <?= $ef_val ? 'checked' : '' ?>>
+            </div>
+            <label for="chk_ef" class="mb-0" style="cursor:pointer">
+                <span id="ef_label" class="fw-semibold small">
+                    <?= $ef_val ? '📦 Entrega física — Sanesa trae la mercadería' : '📄 Remito virtual — usa stock existente' ?>
+                </span>
+            </label>
+        </div>
+
         <!-- ─── SECCIÓN: CAMIÓN / TRANSPORTE ─────────────────── -->
-        <div class="seccion">
+        <div class="seccion" id="seccion-transporte" <?= $ef_val ? '' : 'style="display:none"' ?>>
             <div class="seccion-titulo"><i class="bi bi-truck me-1"></i>Camión / Transporte</div>
             <div class="row g-2">
                 <div class="col-sm-3 col-lg-2">
@@ -356,28 +377,6 @@ $nav_modulo = 'remitos';
                     <textarea name="observaciones" class="form-control form-control-sm" rows="2"
                               tabindex="-1"
                               placeholder="Notas adicionales sobre el remito..."><?= $form_post ? vp('observaciones') : h($remito['observaciones'] ?? '') ?></textarea>
-                </div>
-            </div>
-            <div class="row g-2 mt-2">
-                <div class="col-12">
-                    <?php
-                    $ef_val = $form_post
-                        ? !empty($form_post['entrega_fisica'])
-                        : (isset($remito['entrega_fisica']) ? (bool)$remito['entrega_fisica'] : true);
-                    ?>
-                    <div class="d-flex align-items-center gap-2 p-2 rounded"
-                         style="background:<?= $ef_val ? '#f0fdf4' : '#fff7ed' ?>;border:1px solid <?= $ef_val ? '#bbf7d0' : '#fed7aa' ?>">
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" role="switch"
-                                   name="entrega_fisica" id="chk_ef" value="1"
-                                   <?= $ef_val ? 'checked' : '' ?>>
-                        </div>
-                        <label for="chk_ef" class="mb-0" style="cursor:pointer">
-                            <span id="ef_label" class="fw-semibold small">
-                                <?= $ef_val ? '📦 Entrega física — Sanesa trae la mercadería' : '📄 Remito virtual — usa stock existente' ?>
-                            </span>
-                        </label>
-                    </div>
                 </div>
             </div>
         </div>
@@ -1251,20 +1250,23 @@ document.getElementById('btn_guardar_cliente').addEventListener('click', functio
     filtrarTurnos();
 })();
 
-// ── Entrega física: actualizar visual del switch ──────────────
+// ── Entrega física: actualizar visual + mostrar/ocultar transporte ──
 (function() {
     const chk   = document.getElementById('chk_ef');
     const lbl   = document.getElementById('ef_label');
-    const wrap  = chk.closest('.d-flex');
+    const wrap  = document.getElementById('ef_wrap');
+    const trans = document.getElementById('seccion-transporte');
     function actualizarEF() {
         if (chk.checked) {
             lbl.textContent  = '📦 Entrega física — Sanesa trae la mercadería';
             wrap.style.background = '#f0fdf4';
             wrap.style.border     = '1px solid #bbf7d0';
+            trans.style.display   = '';
         } else {
             lbl.textContent  = '📄 Remito virtual — usa stock existente';
             wrap.style.background = '#fff7ed';
             wrap.style.border     = '1px solid #fed7aa';
+            trans.style.display   = 'none';
         }
     }
     chk.addEventListener('change', actualizarEF);
