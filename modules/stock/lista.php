@@ -56,6 +56,7 @@ foreach ($articulos as $a) {
 }
 
 $nav_modulo = 'stock';
+$auto_refresh = 60;
 ?>
 <!DOCTYPE html>
 <html lang="es">
