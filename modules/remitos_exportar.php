@@ -50,6 +50,7 @@ $sql = "
         FROM entrega_remitos er
         JOIN entregas en ON en.id = er.entrega_id
         WHERE en.estado IN ('completada','entregado','con_incidencias')
+          AND (er.resultado = 'entregado' OR er.resultado IS NULL)
         GROUP BY er.remito_id
     ) ef ON ef.remito_id = r.id
     WHERE " . implode(' AND ', $where) . "

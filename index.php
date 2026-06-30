@@ -80,7 +80,8 @@ $sql = "
         SELECT er.remito_id, DATE(MAX(en.fecha_salida)) AS fecha_salida_real
         FROM entrega_remitos er
         JOIN entregas en ON en.id = er.entrega_id
-        WHERE en.fecha_salida IS NOT NULL
+        WHERE en.estado IN ('completada','entregado','con_incidencias')
+          AND (er.resultado = 'entregado' OR er.resultado IS NULL)
         GROUP BY er.remito_id
     ) ef ON ef.remito_id = r.id
     WHERE " . implode(' AND ', $where) . "
