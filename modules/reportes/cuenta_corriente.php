@@ -591,7 +591,8 @@ $nav_modulo = 'reportes';
     <style>
         body { background: #eef1f6; }
         @page {
-            margin: 1.5cm 1.2cm;
+            size: landscape;
+            margin: 1.3cm 1.5cm;
             @bottom-right {
                 content: "Pág. " counter(page) " / " counter(pages);
                 font-family: 'Segoe UI', Arial, sans-serif;
@@ -814,9 +815,9 @@ $nav_modulo = 'reportes';
                     <th style="padding:4pt 5pt; text-align:right; width:58pt;">Pal. entrada</th>
                     <th style="padding:4pt 5pt; text-align:right; width:54pt;">Pal. salida</th>
                     <th style="padding:4pt 5pt; text-align:right; width:50pt;">Stock</th>
-                    <?php if ($con_pos):   ?><th style="padding:4pt 5pt; text-align:right; width:62pt;">$ Almacenaje</th><?php endif; ?>
-                    <?php if ($con_viaje): ?><th style="padding:4pt 5pt; text-align:right; width:62pt;">$ Distribución</th><?php endif; ?>
-                    <?php if ($con_saldo): ?><th style="padding:4pt 5pt; text-align:right; width:62pt;">Saldo acum.</th><?php endif; ?>
+                    <?php if ($con_pos):   ?><th style="padding:4pt 5pt; text-align:right; width:72pt;">$ Almacenaje</th><?php endif; ?>
+                    <?php if ($con_viaje): ?><th style="padding:4pt 5pt; text-align:right; width:72pt;">$ Distribución</th><?php endif; ?>
+                    <?php if ($con_saldo): ?><th style="padding:4pt 5pt; text-align:right; width:72pt;">Saldo acum.</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
@@ -926,20 +927,20 @@ $nav_modulo = 'reportes';
             </tbody>
             <tfoot>
                 <tr class="pt-total-row">
-                    <td colspan="4" style="padding:5pt 5pt; text-align:right; font-size:9pt;">
+                    <td colspan="4" style="padding:5pt 5pt; text-align:right; font-size:9pt; white-space:nowrap;">
                         TOTAL <?= strtoupper($meses[$mes]) ?> <?= $anio ?>
                     </td>
-                    <td style="padding:5pt 5pt; text-align:right;">+<?= fmtPal($datos['total_ingresado']) ?></td>
-                    <td style="padding:5pt 5pt; text-align:right;">−<?= fmtPal($datos['total_salido']) ?></td>
-                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtPal($datos['stock_actual']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right; white-space:nowrap;">+<?= fmtPal($datos['total_ingresado']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right; white-space:nowrap;">−<?= fmtPal($datos['total_salido']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right; white-space:nowrap;"><?= fmtPal($datos['stock_actual']) ?></td>
                     <?php if ($con_pos): ?>
-                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtMoney($datos['total_costo_pos']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right; white-space:nowrap; font-size:8.5pt;"><?= fmtMoney($datos['total_costo_pos']) ?></td>
                     <?php endif; ?>
                     <?php if ($con_viaje): ?>
-                    <td style="padding:5pt 5pt; text-align:right;"><?= fmtMoney($datos['total_costo_viajes']) ?></td>
+                    <td style="padding:5pt 5pt; text-align:right; white-space:nowrap; font-size:8.5pt;"><?= fmtMoney($datos['total_costo_viajes']) ?></td>
                     <?php endif; ?>
                     <?php if ($con_saldo): ?>
-                    <td style="padding:5pt 5pt; text-align:right;">
+                    <td style="padding:5pt 5pt; text-align:right; white-space:nowrap; font-size:8.5pt;">
                         <?= fmtMoney(($datos['total_costo_pos'] ?? 0) + ($datos['total_costo_viajes'] ?? 0)) ?>
                     </td>
                     <?php endif; ?>
@@ -949,17 +950,17 @@ $nav_modulo = 'reportes';
                     <td colspan="<?= $pt_cols - 1 ?>" style="padding:3pt 5pt; text-align:right; font-style:italic; font-size:8pt;">
                         <?= h($g['descripcion']) ?>
                     </td>
-                    <td style="padding:3pt 5pt; text-align:right; font-weight:600;">
+                    <td style="padding:3pt 5pt; text-align:right; font-weight:600; white-space:nowrap; font-size:8.5pt;">
                         <?= fmtMoney((float)$g['importe']) ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
                 <?php if ($total_gastos > 0): ?>
                 <tr class="pt-total-row">
-                    <td colspan="<?= $pt_cols - 1 ?>" style="padding:5pt 5pt; text-align:right; font-size:10pt;">
+                    <td colspan="<?= $pt_cols - 1 ?>" style="padding:5pt 5pt; text-align:right; font-size:10pt; white-space:nowrap;">
                         TOTAL <?= strtoupper($meses[$mes]) ?> <?= $anio ?>
                     </td>
-                    <td style="padding:5pt 5pt; text-align:right; font-size:10pt;">
+                    <td style="padding:5pt 5pt; text-align:right; font-size:9.5pt; white-space:nowrap;">
                         <?= fmtMoney($datos['total_general']) ?>
                     </td>
                 </tr>
