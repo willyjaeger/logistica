@@ -804,19 +804,19 @@ $nav_modulo = 'reportes';
         if ($con_viaje) $pt_cols++;
         if ($con_saldo) $pt_cols++;
         ?>
-        <table style="width:100%; border-collapse:collapse; font-size:8.5pt;">
+        <table style="width:100%; border-collapse:collapse; font-size:9.5pt; table-layout:fixed;">
             <thead>
                 <tr class="pt-thead-row">
-                    <th style="padding:4pt 5pt; text-align:left; white-space:nowrap;">Fecha</th>
-                    <th style="padding:4pt 5pt; text-align:left;">Tipo</th>
-                    <th style="padding:4pt 5pt; text-align:left;">Remito</th>
+                    <th style="padding:4pt 5pt; text-align:left; white-space:nowrap; width:52pt;">Fecha</th>
+                    <th style="padding:4pt 5pt; text-align:left; width:46pt;">Tipo</th>
+                    <th style="padding:4pt 5pt; text-align:left; width:78pt;">Remito</th>
                     <th style="padding:4pt 5pt; text-align:left;">Cliente</th>
-                    <th style="padding:4pt 5pt; text-align:right;">Pal. entrada</th>
-                    <th style="padding:4pt 5pt; text-align:right;">Pal. salida</th>
-                    <th style="padding:4pt 5pt; text-align:right;">Stock</th>
-                    <?php if ($con_pos):   ?><th style="padding:4pt 5pt; text-align:right;">$ Almacenaje</th><?php endif; ?>
-                    <?php if ($con_viaje): ?><th style="padding:4pt 5pt; text-align:right;">$ Distribución</th><?php endif; ?>
-                    <?php if ($con_saldo): ?><th style="padding:4pt 5pt; text-align:right;">Saldo acum.</th><?php endif; ?>
+                    <th style="padding:4pt 5pt; text-align:right; width:58pt;">Pal. entrada</th>
+                    <th style="padding:4pt 5pt; text-align:right; width:54pt;">Pal. salida</th>
+                    <th style="padding:4pt 5pt; text-align:right; width:50pt;">Stock</th>
+                    <?php if ($con_pos):   ?><th style="padding:4pt 5pt; text-align:right; width:62pt;">$ Almacenaje</th><?php endif; ?>
+                    <?php if ($con_viaje): ?><th style="padding:4pt 5pt; text-align:right; width:62pt;">$ Distribución</th><?php endif; ?>
+                    <?php if ($con_saldo): ?><th style="padding:4pt 5pt; text-align:right; width:62pt;">Saldo acum.</th><?php endif; ?>
                 </tr>
             </thead>
             <tbody>
@@ -848,7 +848,7 @@ $nav_modulo = 'reportes';
                     : '';
             ?>
                 <tr class="pt-day-row">
-                    <td colspan="<?= $pt_cols ?>" style="padding:3pt 5pt; font-size:8pt; border-top:1pt solid #ccc;">
+                    <td colspan="<?= $pt_cols ?>" style="padding:3pt 5pt; font-size:9pt; border-top:1pt solid #ccc;">
                         <?= $label_dia ?>
                         <?php if ($info_dia): ?>
                         <span style="font-weight:400; color:#555; margin-left:8pt;"><?= $info_dia ?></span>
@@ -869,20 +869,27 @@ $nav_modulo = 'reportes';
                     $pt_row_alt = !$pt_row_alt;
                 ?>
                 <tr style="background:<?= $bg_row ?>; border-bottom:.5pt solid #e0e0e0;">
-                    <td style="padding:3pt 5pt; color:#666; font-size:8pt; white-space:nowrap;"><?= "$d_n/$m_n/$y" ?></td>
-                    <td style="padding:3pt 5pt; white-space:nowrap;">
+                    <td style="padding:3pt 5pt; color:#666; font-size:9pt; white-space:nowrap;"><?= "$d_n/$m_n/$y" ?></td>
+                    <td style="padding:3pt 5pt; font-size:8.5pt; word-break:break-word;">
                         <?php if ($es_ing): ?>
                         <span style="font-weight:600;">↑ Ingreso</span>
                         <?php elseif ($es_dev): ?>
-                        <span style="font-weight:600; color:#155724;">↩ Devolución</span>
+                        <span style="font-weight:600; color:#155724;">↩ Devol.</span>
                         <?php elseif ($es_rec): ?>
-                        <span style="font-weight:600; color:#b02a37;">✗ Rechazado<?= $mov['observacion'] ? ' — ' . h($mov['observacion']) : '' ?></span>
+                        <span style="font-weight:600; color:#b02a37;">✗ Rechaz.</span>
                         <?php else: ?>
                         <span>↓ Salida</span>
                         <?php endif; ?>
                     </td>
-                    <td style="padding:3pt 5pt; font-family:monospace; font-size:8pt;"><?= h($r['nro_remito_propio']) ?></td>
-                    <td style="padding:3pt 5pt;"><?= h($r['cliente']) ?></td>
+                    <td style="padding:3pt 5pt; font-family:monospace; font-size:9pt;"><?= h($r['nro_remito_propio']) ?></td>
+                    <td style="padding:3pt 5pt; font-size:9pt;">
+                        <?= h($r['cliente']) ?>
+                        <?php if ($es_rec && $mov['observacion']): ?>
+                        <div style="font-size:7.5pt; color:#b02a37; font-style:italic; margin-top:1pt;">
+                            Rechazado: <?= h($mov['observacion']) ?>
+                        </div>
+                        <?php endif; ?>
+                    </td>
                     <td style="padding:3pt 5pt; text-align:right; font-weight:<?= ($es_ing || $es_dev) ? '700' : '400' ?>;">
                         <?= ($es_ing || $es_dev) ? '+'.fmtPal($pal_show) : '—' ?>
                     </td>
