@@ -810,8 +810,8 @@ $nav_modulo = 'reportes';
                 <tr class="pt-thead-row">
                     <th style="padding:4pt 5pt; text-align:left; white-space:nowrap; width:52pt;">Fecha</th>
                     <th style="padding:4pt 5pt; text-align:left; width:46pt;">Tipo</th>
-                    <th style="padding:4pt 5pt; text-align:left; width:78pt;">Remito</th>
-                    <th style="padding:4pt 5pt; text-align:left;">Cliente</th>
+                    <th style="padding:4pt 5pt; text-align:left; width:100pt;">Remito</th>
+                    <th style="padding:4pt 5pt; text-align:left; width:110pt;">Cliente</th>
                     <th style="padding:4pt 5pt; text-align:right; width:58pt;">Pal. entrada</th>
                     <th style="padding:4pt 5pt; text-align:right; width:54pt;">Pal. salida</th>
                     <th style="padding:4pt 5pt; text-align:right; width:50pt;">Stock</th>
@@ -882,8 +882,8 @@ $nav_modulo = 'reportes';
                         <span>↓ Salida</span>
                         <?php endif; ?>
                     </td>
-                    <td style="padding:3pt 5pt; font-family:monospace; font-size:9pt;"><?= h($r['nro_remito_propio']) ?></td>
-                    <td style="padding:3pt 5pt; font-size:9pt;">
+                    <td style="padding:3pt 5pt; font-family:monospace; font-size:9pt; white-space:nowrap; overflow:hidden;"><?= h($r['nro_remito_propio']) ?></td>
+                    <td style="padding:3pt 5pt; font-size:9pt; overflow:hidden;">
                         <?= h($r['cliente']) ?>
                         <?php if ($es_rec && $mov['observacion']): ?>
                         <div style="font-size:7.5pt; color:#b02a37; font-style:italic; margin-top:1pt;">
