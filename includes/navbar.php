@@ -52,8 +52,8 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                         <i class="bi bi-bar-chart me-1"></i>Reportes
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?= url('modules/reportes/camiones.php') ?>">
-                            <i class="bi bi-truck me-2"></i>Reporte camiones
+                        <li><a class="dropdown-item" href="<?= url('modules/reportes/viajes_transporte.php') ?>">
+                            <i class="bi bi-truck me-2"></i>Viajes por transporte
                         </a></li>
                         <li><a class="dropdown-item" href="<?= url('modules/reportes/cuenta_corriente.php') ?>">
                             <i class="bi bi-journal-text me-2"></i>Cuenta corriente
