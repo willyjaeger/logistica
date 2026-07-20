@@ -289,7 +289,7 @@ $auto_refresh = 60;
                             <th><a href="<?= sort_url('fecha_ingreso', $sort, $dir, $_filters) ?>">Fecha ingreso<?= sort_icon('fecha_ingreso', $sort, $dir) ?></a></th>
                             <th><a href="<?= sort_url('nro_remito',    $sort, $dir, $_filters) ?>">Nro remito<?= sort_icon('nro_remito',    $sort, $dir) ?></a></th>
                             <th><a href="<?= sort_url('cliente',       $sort, $dir, $_filters) ?>">Cliente<?= sort_icon('cliente',       $sort, $dir) ?></a></th>
-                            <th><a href="<?= sort_url('proveedor',     $sort, $dir, $_filters) ?>">Proveedor<?= sort_icon('proveedor',     $sort, $dir) ?></a></th>
+                            <th style="width:90px"><a href="<?= sort_url('proveedor',     $sort, $dir, $_filters) ?>">Proveedor<?= sort_icon('proveedor',     $sort, $dir) ?></a></th>
                             <th class="text-center"><a href="<?= sort_url('pallets', $sort, $dir, $_filters) ?>">Pallets<?= sort_icon('pallets', $sort, $dir) ?></a></th>
                             <th><a href="<?= sort_url('estado',        $sort, $dir, $_filters) ?>">Estado<?= sort_icon('estado',        $sort, $dir) ?></a></th>
                             <th><a href="<?= sort_url('fecha_entrega', $sort, $dir, $_filters) ?>">F. programada<?= sort_icon('fecha_entrega', $sort, $dir) ?></a></th>
@@ -299,7 +299,8 @@ $auto_refresh = 60;
                     </thead>
                     <tbody>
                     <?php foreach ($remitos as $r):
-                        $items   = $items_map[$r['id']] ?? [];
+                        $items    = $items_map[$r['id']] ?? [];
+                        $tiene_obs = trim($r['observaciones'] ?? '') !== '';
                         [$cls, $lbl] = $estado_label[$r['estado']] ?? ['bg-secondary', $r['estado']];
                         $fecha_i = substr($r['fecha_ingreso'], 0, 10);
                         [$y,$m,$d] = explode('-', $fecha_i);
@@ -307,7 +308,7 @@ $auto_refresh = 60;
                     ?>
                     <tr class="remito-row">
                         <td class="ps-2">
-                            <?php if ($items): ?>
+                            <?php if ($items || $tiene_obs): ?>
                             <button type="button"
                                     class="btn btn-expand btn-sm btn-outline-secondary rounded-circle"
                                     onclick="toggleItems(this, <?= $r['id'] ?>)">
@@ -318,7 +319,7 @@ $auto_refresh = 60;
                         <td class="small"><?= $fecha_fmt ?></td>
                         <td class="fw-semibold font-monospace"><?= h($r['nro_remito_propio']) ?></td>
                         <td><?= h($r['cliente']) ?></td>
-                        <td class="small text-muted"><?= h($r['proveedor'] ?? '—') ?></td>
+                        <td class="small text-muted text-truncate d-inline-block" style="max-width:90px" title="<?= h($r['proveedor'] ?? '') ?>"><?= h($r['proveedor'] ?? '—') ?></td>
                         <td class="text-center">
                             <?php if ($r['total_pallets'] > 0): ?>
                             <span class="badge bg-primary rounded-pill"><?= number_format($r['total_pallets'], 1) ?></span>
@@ -384,9 +385,16 @@ $auto_refresh = 60;
                             </form>
                         </td>
                     </tr>
-                    <?php if ($items): ?>
+                    <?php if ($items || $tiene_obs): ?>
                     <tr id="items-<?= $r['id'] ?>" class="row-items d-none">
                         <td colspan="10">
+                            <?php if ($tiene_obs): ?>
+                            <div class="alert alert-warning py-2 px-3 mb-2 small">
+                                <i class="bi bi-chat-left-text me-1"></i><strong>Observaciones:</strong>
+                                <?= nl2br(h($r['observaciones'])) ?>
+                            </div>
+                            <?php endif; ?>
+                            <?php if ($items): ?>
                             <table class="table table-sm mb-0">
                                 <thead>
                                     <tr class="text-muted">
@@ -413,6 +421,7 @@ $auto_refresh = 60;
                                 <?php endforeach; ?>
                                 </tbody>
                             </table>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endif; ?>

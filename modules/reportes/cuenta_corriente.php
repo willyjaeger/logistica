@@ -167,7 +167,7 @@ if ($proveedor_id > 0) {
 
     $stmt = $db->prepare("
         SELECT r.id, r.nro_remito_propio, r.total_pallets, r.entrega_fisica,
-               r.fecha_devolucion, r.pallets_devueltos,
+               r.fecha_devolucion, r.pallets_devueltos, r.observaciones,
                c.nombre              AS cliente,
                DATE(i.fecha_ingreso) AS fecha_ingreso,
                ef.fecha_salida_real
@@ -890,6 +890,11 @@ $nav_modulo = 'reportes';
                             Rechazado: <?= h($mov['observacion']) ?>
                         </div>
                         <?php endif; ?>
+                        <?php if (!$es_rec && trim($r['observaciones'] ?? '') !== ''): ?>
+                        <div style="font-size:7.5pt; color:#666; font-style:italic; margin-top:1pt;">
+                            <?= h($r['observaciones']) ?>
+                        </div>
+                        <?php endif; ?>
                     </td>
                     <td style="padding:3pt 5pt; text-align:right; font-weight:<?= ($es_ing || $es_dev) ? '700' : '400' ?>;">
                         <?= ($es_ing || $es_dev) ? '+'.fmtPal($pal_show) : '—' ?>
@@ -1235,6 +1240,9 @@ $nav_modulo = 'reportes';
                     <span class="badge bg-success me-1">Ingreso</span>
                     <span class="font-monospace small"><?= h($r['nro_remito_propio']) ?></span>
                     <span class="text-muted ms-1 small"><?= h($r['cliente']) ?></span>
+                    <?php if (trim($r['observaciones'] ?? '') !== ''): ?>
+                    <span class="text-muted ms-1 small fst-italic">— <?= h($r['observaciones']) ?></span>
+                    <?php endif; ?>
                 </td>
                 <td class="text-end text-success fw-semibold">+<?= fmtPal((float)$r['total_pallets']) ?></td>
                 <td></td>
@@ -1251,6 +1259,9 @@ $nav_modulo = 'reportes';
                     <span class="badge me-1" style="background:#f97316">Entrega</span>
                     <span class="font-monospace small"><?= h($r['nro_remito_propio']) ?></span>
                     <span class="text-muted ms-1 small"><?= h($r['cliente']) ?></span>
+                    <?php if (trim($r['observaciones'] ?? '') !== ''): ?>
+                    <span class="text-muted ms-1 small fst-italic">— <?= h($r['observaciones']) ?></span>
+                    <?php endif; ?>
                 </td>
                 <td></td>
                 <td class="text-end col-viaje fw-semibold">−<?= fmtPal((float)$r['total_pallets']) ?></td>
@@ -1267,6 +1278,9 @@ $nav_modulo = 'reportes';
                     <span class="badge bg-info text-dark me-1">Devolución</span>
                     <span class="font-monospace small"><?= h($r['nro_remito_propio']) ?></span>
                     <span class="text-muted ms-1 small"><?= h($r['cliente']) ?></span>
+                    <?php if (trim($r['observaciones'] ?? '') !== ''): ?>
+                    <span class="text-muted ms-1 small fst-italic">— <?= h($r['observaciones']) ?></span>
+                    <?php endif; ?>
                 </td>
                 <td class="text-end text-success fw-semibold">+<?= fmtPal((float)($r['pallets_devueltos'] ?? $r['total_pallets'])) ?></td>
                 <td></td>

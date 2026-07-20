@@ -293,6 +293,12 @@ $auto_refresh = 60;
                     </tr>
                     <tr id="items-<?= $e['id'] ?>" class="row-remitos d-none">
                         <td colspan="10">
+                            <?php if (trim($e['observaciones'] ?? '') !== ''): ?>
+                            <div class="alert alert-warning py-2 px-3 mb-2 small">
+                                <i class="bi bi-chat-left-text me-1"></i><strong>Observaciones:</strong>
+                                <?= nl2br(h($e['observaciones'])) ?>
+                            </div>
+                            <?php endif; ?>
                             <?php if ($items): ?>
                             <table class="table table-sm mb-0">
                                 <thead>
