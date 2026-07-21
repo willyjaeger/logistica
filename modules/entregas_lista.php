@@ -47,6 +47,7 @@ if ($entregas) {
     $ri = $db->query("
         SELECT er.entrega_id,
                r.id AS remito_id, r.nro_remito_propio, r.total_pallets, r.fecha_entrega,
+               r.observaciones AS remito_obs,
                c.nombre AS cliente,
                p.nombre AS proveedor
         FROM entrega_remitos er
@@ -241,6 +242,7 @@ $auto_refresh = 60;
                             <th>Chofer</th>
                             <th class="text-center">Remitos</th>
                             <th class="text-center">Pallets</th>
+                            <th>Observaciones</th>
                             <th class="no-print"></th>
                         </tr>
                     </thead>
@@ -248,6 +250,13 @@ $auto_refresh = 60;
                     <?php foreach ($entregas as $e):
                         $items = $items_map[$e['id']] ?? [];
                         [$y,$m,$d] = explode('-', $e['fecha']);
+                        $obs_partes = [];
+                        if (trim($e['observaciones'] ?? '') !== '') $obs_partes[] = $e['observaciones'];
+                        foreach ($items as $it) {
+                            if (trim($it['remito_obs'] ?? '') !== '') {
+                                $obs_partes[] = $it['nro_remito_propio'] . ': ' . $it['remito_obs'];
+                            }
+                        }
                     ?>
                     <?php
                         [$eb_cls, $eb_lbl] = $estado_badge[$e['estado']] ?? ['bg-secondary', $e['estado'] ?: '—'];
@@ -276,6 +285,16 @@ $auto_refresh = 60;
                             <span class="text-muted">—</span>
                             <?php endif; ?>
                         </td>
+                        <td class="small">
+                            <?php if ($obs_partes): ?>
+                            <span class="text-warning-emphasis" title="<?= h(implode(' | ', $obs_partes)) ?>">
+                                <i class="bi bi-chat-left-text-fill me-1"></i><?= h(mb_strimwidth($obs_partes[0], 0, 40, '…')) ?>
+                                <?= count($obs_partes) > 1 ? ' <span class="badge bg-warning text-dark">+' . (count($obs_partes) - 1) . '</span>' : '' ?>
+                            </span>
+                            <?php else: ?>
+                            <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-end pe-3 no-print" onclick="event.stopPropagation()">
                             <a href="<?= url('modules/entrega_dia_form.php') ?>?id=<?= $e['id'] ?>&back=lista"
                                class="btn btn-sm btn-outline-primary me-1" title="Editar">
@@ -292,10 +311,10 @@ $auto_refresh = 60;
                         </td>
                     </tr>
                     <tr id="items-<?= $e['id'] ?>" class="row-remitos d-none">
-                        <td colspan="10">
+                        <td colspan="11">
                             <?php if (trim($e['observaciones'] ?? '') !== ''): ?>
                             <div class="alert alert-warning py-2 px-3 mb-2 small">
-                                <i class="bi bi-chat-left-text me-1"></i><strong>Observaciones:</strong>
+                                <i class="bi bi-chat-left-text me-1"></i><strong>Observaciones de la entrega:</strong>
                                 <?= nl2br(h($e['observaciones'])) ?>
                             </div>
                             <?php endif; ?>
@@ -307,6 +326,7 @@ $auto_refresh = 60;
                                         <th>Cliente</th>
                                         <th>Proveedor</th>
                                         <th class="text-end">Pallets</th>
+                                        <th>Observaciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -316,6 +336,9 @@ $auto_refresh = 60;
                                     <td><?= h($it['cliente']) ?></td>
                                     <td class="text-muted"><?= h($it['proveedor'] ?? '—') ?></td>
                                     <td class="text-end"><?= $it['total_pallets'] > 0 ? number_format($it['total_pallets'], 1) : '—' ?></td>
+                                    <td class="small <?= trim($it['remito_obs'] ?? '') !== '' ? 'text-danger-emphasis fw-semibold' : 'text-muted' ?>">
+                                        <?= trim($it['remito_obs'] ?? '') !== '' ? nl2br(h($it['remito_obs'])) : '—' ?>
+                                    </td>
                                 </tr>
                                 <?php endforeach; ?>
                                 </tbody>
@@ -324,6 +347,7 @@ $auto_refresh = 60;
                                     <tr>
                                         <td colspan="3" class="text-end">Total</td>
                                         <td class="text-end"><?= number_format($total_pal, 1) ?></td>
+                                        <td></td>
                                     </tr>
                                 </tfoot>
                             </table>
