@@ -48,6 +48,7 @@ if ($entregas) {
         SELECT er.entrega_id,
                r.id AS remito_id, r.nro_remito_propio, r.total_pallets, r.fecha_entrega,
                r.observaciones AS remito_obs,
+               er.resultado, er.observacion AS motivo_incidencia,
                c.nombre AS cliente,
                p.nombre AS proveedor
         FROM entrega_remitos er
@@ -250,7 +251,14 @@ $auto_refresh = 60;
                     <?php foreach ($entregas as $e):
                         $items = $items_map[$e['id']] ?? [];
                         [$y,$m,$d] = explode('-', $e['fecha']);
-                        $obs_partes = [];
+                        $incidencias = [];
+                        $obs_partes  = [];
+                        foreach ($items as $it) {
+                            if (($it['resultado'] ?? '') === 'no_entregado') {
+                                $incidencias[] = $it['nro_remito_propio'] . ': '
+                                    . (trim($it['motivo_incidencia'] ?? '') !== '' ? $it['motivo_incidencia'] : 'sin motivo especificado');
+                            }
+                        }
                         if (trim($e['observaciones'] ?? '') !== '') $obs_partes[] = $e['observaciones'];
                         foreach ($items as $it) {
                             if (trim($it['remito_obs'] ?? '') !== '') {
@@ -286,7 +294,12 @@ $auto_refresh = 60;
                             <?php endif; ?>
                         </td>
                         <td class="small">
-                            <?php if ($obs_partes): ?>
+                            <?php if ($incidencias): ?>
+                            <span class="text-danger fw-semibold" title="<?= h(implode(' | ', $incidencias)) ?>">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i><?= h(mb_strimwidth($incidencias[0], 0, 40, '…')) ?>
+                                <?= count($incidencias) > 1 ? ' <span class="badge bg-danger">+' . (count($incidencias) - 1) . '</span>' : '' ?>
+                            </span>
+                            <?php elseif ($obs_partes): ?>
                             <span class="text-warning-emphasis" title="<?= h(implode(' | ', $obs_partes)) ?>">
                                 <i class="bi bi-chat-left-text-fill me-1"></i><?= h(mb_strimwidth($obs_partes[0], 0, 40, '…')) ?>
                                 <?= count($obs_partes) > 1 ? ' <span class="badge bg-warning text-dark">+' . (count($obs_partes) - 1) . '</span>' : '' ?>
@@ -312,6 +325,16 @@ $auto_refresh = 60;
                     </tr>
                     <tr id="items-<?= $e['id'] ?>" class="row-remitos d-none">
                         <td colspan="11">
+                            <?php if ($incidencias): ?>
+                            <div class="alert alert-danger py-2 px-3 mb-2 small">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Incidencias (no entregado):</strong>
+                                <ul class="mb-0 ps-3">
+                                    <?php foreach ($incidencias as $inc): ?>
+                                    <li><?= h($inc) ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                            <?php endif; ?>
                             <?php if (trim($e['observaciones'] ?? '') !== ''): ?>
                             <div class="alert alert-warning py-2 px-3 mb-2 small">
                                 <i class="bi bi-chat-left-text me-1"></i><strong>Observaciones de la entrega:</strong>
@@ -330,14 +353,26 @@ $auto_refresh = 60;
                                     </tr>
                                 </thead>
                                 <tbody>
-                                <?php foreach ($items as $it): ?>
-                                <tr>
-                                    <td class="fw-semibold font-monospace"><?= h($it['nro_remito_propio']) ?></td>
+                                <?php foreach ($items as $it):
+                                    $no_entregado = ($it['resultado'] ?? '') === 'no_entregado';
+                                ?>
+                                <tr class="<?= $no_entregado ? 'table-danger' : '' ?>">
+                                    <td class="fw-semibold font-monospace">
+                                        <?= h($it['nro_remito_propio']) ?>
+                                        <?php if ($no_entregado): ?>
+                                        <span class="badge bg-danger ms-1">No entregado</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?= h($it['cliente']) ?></td>
                                     <td class="text-muted"><?= h($it['proveedor'] ?? '—') ?></td>
                                     <td class="text-end"><?= $it['total_pallets'] > 0 ? number_format($it['total_pallets'], 1) : '—' ?></td>
-                                    <td class="small <?= trim($it['remito_obs'] ?? '') !== '' ? 'text-danger-emphasis fw-semibold' : 'text-muted' ?>">
-                                        <?= trim($it['remito_obs'] ?? '') !== '' ? nl2br(h($it['remito_obs'])) : '—' ?>
+                                    <td class="small <?= ($no_entregado || trim($it['remito_obs'] ?? '') !== '') ? 'text-danger-emphasis fw-semibold' : 'text-muted' ?>">
+                                        <?php
+                                        $obs_cell = [];
+                                        if ($no_entregado) $obs_cell[] = 'Motivo: ' . (trim($it['motivo_incidencia'] ?? '') !== '' ? $it['motivo_incidencia'] : 'sin motivo especificado');
+                                        if (trim($it['remito_obs'] ?? '') !== '') $obs_cell[] = $it['remito_obs'];
+                                        echo $obs_cell ? nl2br(h(implode(' — ', $obs_cell))) : '—';
+                                        ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
