@@ -26,7 +26,7 @@ if ($transportista_id > 0) { $where[] = 'e.transportista_id = ?'; $params[] = $t
 $sql = "
     SELECT e.id,
            COALESCE(e.fecha, DATE(e.fecha_salida))   AS fecha,
-           e.estado,
+           e.estado, e.costo_transporte,
            COALESCE(e.transportista_id, 0)            AS transportista_id,
            COALESCE(t.nombre, '(Sin transportista)')  AS transportista,
            cam.patente,
@@ -40,7 +40,7 @@ $sql = "
     LEFT JOIN entrega_remitos er ON er.entrega_id = e.id
     LEFT JOIN remitos r          ON r.id = er.remito_id
     WHERE " . implode(' AND ', $where) . "
-    GROUP BY e.id, e.empresa_id, e.fecha, e.fecha_salida, e.estado,
+    GROUP BY e.id, e.empresa_id, e.fecha, e.fecha_salida, e.estado, e.costo_transporte,
              e.transportista_id, t.nombre, cam.patente, ch.nombre
     ORDER BY COALESCE(t.nombre, '~'), COALESCE(e.fecha, DATE(e.fecha_salida)) DESC, e.id DESC
 ";
@@ -52,26 +52,44 @@ $entregas_raw = $stmt->fetchAll();
 $grupos             = [];
 $total_viajes_gral  = 0;
 $total_pallets_gral = 0.0;
+$total_costo_gral   = 0.0;
 
 foreach ($entregas_raw as $e) {
-    $tid  = (int)$e['transportista_id'];
-    $tnom = $e['transportista'];
-    $mes  = $e['fecha'] ? substr($e['fecha'], 0, 7) : '0000-00';
+    $tid   = (int)$e['transportista_id'];
+    $tnom  = $e['transportista'];
+    $mes   = $e['fecha'] ? substr($e['fecha'], 0, 7) : '0000-00';
+    $costo = (float)($e['costo_transporte'] ?? 0);
 
     if (!isset($grupos[$tid])) {
-        $grupos[$tid] = ['nombre' => $tnom, 'meses' => [], 'total_viajes' => 0, 'total_pallets' => 0.0];
+        $grupos[$tid] = ['nombre' => $tnom, 'meses' => [], 'total_viajes' => 0, 'total_pallets' => 0.0, 'total_costo' => 0.0];
     }
     if (!isset($grupos[$tid]['meses'][$mes])) {
-        $grupos[$tid]['meses'][$mes] = ['viajes' => [], 'total_viajes' => 0, 'total_pallets' => 0.0];
+        $grupos[$tid]['meses'][$mes] = ['viajes' => [], 'total_viajes' => 0, 'total_pallets' => 0.0, 'total_costo' => 0.0];
     }
     $grupos[$tid]['meses'][$mes]['viajes'][]       = $e;
     $grupos[$tid]['meses'][$mes]['total_viajes']  += 1;
     $grupos[$tid]['meses'][$mes]['total_pallets'] += (float)$e['total_pallets'];
+    $grupos[$tid]['meses'][$mes]['total_costo']   += $costo;
     $grupos[$tid]['total_viajes']                 += 1;
     $grupos[$tid]['total_pallets']                += (float)$e['total_pallets'];
+    $grupos[$tid]['total_costo']                  += $costo;
     $total_viajes_gral  += 1;
     $total_pallets_gral += (float)$e['total_pallets'];
+    $total_costo_gral   += $costo;
 }
+
+// Dentro de cada mes, ordenar los viajes de forma cronológica ascendente
+// (día 1 → día 31), que es como suelen venir las planillas del transportista.
+foreach ($grupos as &$g) {
+    krsort($g['meses']); // meses: más reciente primero
+    foreach ($g['meses'] as &$md) {
+        usort($md['viajes'], function ($a, $b) {
+            return [$a['fecha'], $a['id']] <=> [$b['fecha'], $b['id']];
+        });
+    }
+    unset($md);
+}
+unset($g);
 
 // ── Helpers ───────────────────────────────────────────────────────
 $meses_es = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -99,6 +117,10 @@ function fmtFechaVT(?string $f): string {
     if (!$f) return '—';
     [$y, $m, $d] = explode('-', substr($f, 0, 10));
     return "$d/$m/$y";
+}
+
+function fmtMoney(float $v): string {
+    return '$' . number_format($v, 2, ',', '.');
 }
 
 // ── Export Excel ──────────────────────────────────────────────────
@@ -236,6 +258,7 @@ $nav_modulo = 'reportes';
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+            .only-print { display: table-cell !important; }
         }
     </style>
 </head>
@@ -365,6 +388,14 @@ $nav_modulo = 'reportes';
                 </div>
             </div>
         </div>
+        <div class="col-6 col-md-3">
+            <div class="card h-100">
+                <div class="card-body text-center py-3">
+                    <div class="text-muted small text-uppercase fw-semibold mb-1">Costo total</div>
+                    <div class="fs-3 fw-bold text-dark" id="card-costo-gral"><?= fmtMoney($total_costo_gral) ?></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ── Tabla principal ──────────────────────────────────────── -->
@@ -380,6 +411,7 @@ $nav_modulo = 'reportes';
                     <th class="text-center" style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Remitos</th>
                     <th class="text-end" style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Pallets</th>
                     <th class="text-center" style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Estado</th>
+                    <th class="text-end" style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; width:130px">Costo</th>
                 </tr>
             </thead>
             <tbody>
@@ -393,14 +425,16 @@ $nav_modulo = 'reportes';
                     </td>
                     <td class="text-end"><?= number_format($g['total_pallets'], 1) ?> pal.</td>
                     <td class="text-center"><?= $ngt ?> viaje<?= $ngt === 1 ? '' : 's' ?></td>
+                    <td class="text-end" id="tot-costo-t-<?= $tid ?>"><?= fmtMoney($g['total_costo']) ?></td>
                 </tr>
 
                 <?php foreach ($g['meses'] as $mes => $md):
                     $nvm = $md['total_viajes'];
+                    $mes_id = $tid . '-' . str_replace(['-', '~'], ['_', 'x'], $mes);
                 ?>
                 <!-- Mes header -->
                 <tr class="row-mes">
-                    <td colspan="6" style="padding:.4rem .75rem">
+                    <td colspan="7" style="padding:.4rem .75rem">
                         <i class="bi bi-calendar3 me-2"></i><?= mesLabel($mes) ?>
                         <span class="ms-3 fw-normal" style="color:#3b5bbd">
                             <?= $nvm ?> viaje<?= $nvm === 1 ? '' : 's' ?>
@@ -431,6 +465,19 @@ $nav_modulo = 'reportes';
                         <?= (float)$e['total_pallets'] > 0 ? number_format((float)$e['total_pallets'], 1) : '—' ?>
                     </td>
                     <td class="text-center"><?= estadoBadge($e['estado']) ?></td>
+                    <td class="no-print">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text px-1">$</span>
+                            <input type="number" step="0.01" min="0"
+                                   class="form-control input-costo text-end"
+                                   data-id="<?= $e['id'] ?>"
+                                   data-tid="<?= $tid ?>"
+                                   data-mes="<?= $mes_id ?>"
+                                   value="<?= $e['costo_transporte'] !== null ? number_format((float)$e['costo_transporte'], 2, '.', '') : '' ?>"
+                                   placeholder="—">
+                        </div>
+                    </td>
+                    <td class="only-print text-end d-none"><?= $e['costo_transporte'] !== null ? fmtMoney((float)$e['costo_transporte']) : '—' ?></td>
                 </tr>
                 <?php endforeach; // viajes ?>
 
@@ -442,6 +489,7 @@ $nav_modulo = 'reportes';
                     <td class="text-center" style="color:#1e3a8a"><?= $nvm ?></td>
                     <td class="text-end" style="color:#1e3a8a"><?= number_format($md['total_pallets'], 1) ?></td>
                     <td></td>
+                    <td class="text-end" style="color:#1e3a8a" id="tot-costo-m-<?= $mes_id ?>"><?= fmtMoney($md['total_costo']) ?></td>
                 </tr>
 
                 <?php endforeach; // meses ?>
@@ -452,6 +500,7 @@ $nav_modulo = 'reportes';
                     <td class="text-center"><?= $ngt ?></td>
                     <td class="text-end"><?= number_format($g['total_pallets'], 1) ?></td>
                     <td></td>
+                    <td class="text-end" id="tot-costo-t2-<?= $tid ?>"><?= fmtMoney($g['total_costo']) ?></td>
                 </tr>
 
             <?php endforeach; // grupos ?>
@@ -462,6 +511,7 @@ $nav_modulo = 'reportes';
                     <td class="text-center"><?= $total_viajes_gral ?></td>
                     <td class="text-end"><?= number_format($total_pallets_gral, 1) ?></td>
                     <td></td>
+                    <td class="text-end" id="tot-costo-gral"><?= fmtMoney($total_costo_gral) ?></td>
                 </tr>
             </tbody>
         </table>
@@ -505,6 +555,80 @@ function setAnio() {
     document.getElementById('inp-desde').value = y + '-01-01';
     document.getElementById('inp-hasta').value = y + '-' + m + '-' + d;
     document.querySelector('form').submit();
+}
+
+// ── Costo de transporte: edición inline + pegado desde Excel ──────
+document.querySelectorAll('.input-costo').forEach(function (inp) {
+    inp.addEventListener('change', function () { guardarCosto(this); });
+    inp.addEventListener('paste', function (e) {
+        const texto = (e.clipboardData || window.clipboardData).getData('text');
+        const valores = texto.split(/\r\n|\r|\n/).map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
+        if (valores.length <= 1) return; // valor único: dejar que el navegador pegue normalmente
+        e.preventDefault();
+        const inputs  = Array.from(document.querySelectorAll('.input-costo'));
+        const desde   = inputs.indexOf(this);
+        const tid     = this.dataset.tid;
+        for (let i = 0; i < valores.length; i++) {
+            const destino = inputs[desde + i];
+            if (!destino || destino.dataset.tid !== tid) break; // no cruzar a otro transportista
+            const num = valores[i].replace(',', '.').replace(/[^0-9.]/g, '');
+            destino.value = num;
+            guardarCosto(destino);
+        }
+    });
+});
+
+function guardarCosto(input) {
+    const id    = input.dataset.id;
+    const costo = input.value;
+    input.classList.remove('is-invalid', 'border-success');
+    fetch('<?= url('modules/entrega_costo_guardar.php') ?>', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'id=' + encodeURIComponent(id) + '&costo=' + encodeURIComponent(costo)
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.ok) {
+            input.classList.add('border-success');
+            setTimeout(function () { input.classList.remove('border-success'); }, 1200);
+            recalcTotalesCosto();
+        } else {
+            input.classList.add('is-invalid');
+        }
+    })
+    .catch(function () { input.classList.add('is-invalid'); });
+}
+
+function fmtMoneyJs(v) {
+    return '$' + v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function recalcTotalesCosto() {
+    const porTransportista = {};
+    const porMes = {};
+    let total = 0;
+    document.querySelectorAll('.input-costo').forEach(function (inp) {
+        const v = parseFloat((inp.value || '0').replace(',', '.')) || 0;
+        porTransportista[inp.dataset.tid] = (porTransportista[inp.dataset.tid] || 0) + v;
+        porMes[inp.dataset.mes] = (porMes[inp.dataset.mes] || 0) + v;
+        total += v;
+    });
+    Object.keys(porTransportista).forEach(function (tid) {
+        const val = fmtMoneyJs(porTransportista[tid]);
+        ['tot-costo-t-', 'tot-costo-t2-'].forEach(function (pfx) {
+            const el = document.getElementById(pfx + tid);
+            if (el) el.textContent = val;
+        });
+    });
+    Object.keys(porMes).forEach(function (mes) {
+        const el = document.getElementById('tot-costo-m-' + mes);
+        if (el) el.textContent = fmtMoneyJs(porMes[mes]);
+    });
+    const gEl = document.getElementById('tot-costo-gral');
+    if (gEl) gEl.textContent = fmtMoneyJs(total);
+    const cardEl = document.getElementById('card-costo-gral');
+    if (cardEl) cardEl.textContent = fmtMoneyJs(total);
 }
 </script>
 </body>

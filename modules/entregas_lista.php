@@ -18,7 +18,7 @@ if ($hasta) { $where[] = 'DATE(e.fecha_salida) <= ?'; $params[] = $hasta; }
 $sql = "
     SELECT e.id,
            COALESCE(e.fecha, DATE(e.fecha_salida)) AS fecha,
-           e.estado, e.observaciones,
+           e.estado, e.observaciones, e.costo_transporte,
            t.nombre  AS transportista,
            cam.patente,
            ch.nombre AS chofer,
@@ -67,6 +67,9 @@ if ($entregas) {
 }
 
 $provs = $db->query("SELECT id, nombre FROM proveedores WHERE activo=1 ORDER BY nombre")->fetchAll();
+
+$admin = es_admin();
+$ncols = $admin ? 12 : 11;
 
 // ── Exportar a Excel (CSV) ────────────────────────────────────
 if (isset($_GET['export'])) {
@@ -243,6 +246,9 @@ $auto_refresh = 60;
                             <th>Chofer</th>
                             <th class="text-center">Remitos</th>
                             <th class="text-center">Pallets</th>
+                            <?php if ($admin): ?>
+                            <th class="text-end no-print" style="width:130px">Costo transporte</th>
+                            <?php endif; ?>
                             <th>Observaciones</th>
                             <th class="no-print"></th>
                         </tr>
@@ -293,6 +299,18 @@ $auto_refresh = 60;
                             <span class="text-muted">—</span>
                             <?php endif; ?>
                         </td>
+                        <?php if ($admin): ?>
+                        <td class="no-print" onclick="event.stopPropagation()">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text px-1">$</span>
+                                <input type="number" step="0.01" min="0"
+                                       class="form-control input-costo text-end"
+                                       data-id="<?= $e['id'] ?>"
+                                       value="<?= $e['costo_transporte'] !== null ? number_format((float)$e['costo_transporte'], 2, '.', '') : '' ?>"
+                                       placeholder="—">
+                            </div>
+                        </td>
+                        <?php endif; ?>
                         <td class="small">
                             <?php if ($incidencias): ?>
                             <span class="text-danger fw-semibold" title="<?= h(implode(' | ', $incidencias)) ?>">
@@ -324,7 +342,7 @@ $auto_refresh = 60;
                         </td>
                     </tr>
                     <tr id="items-<?= $e['id'] ?>" class="row-remitos d-none">
-                        <td colspan="11">
+                        <td colspan="<?= $ncols ?>">
                             <?php if ($incidencias): ?>
                             <div class="alert alert-danger py-2 px-3 mb-2 small">
                                 <i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Incidencias (no entregado):</strong>
@@ -409,6 +427,47 @@ function toggleItems(row, id) {
     const open = !detail.classList.contains('d-none');
     detail.classList.toggle('d-none', open);
     if (btn) btn.classList.toggle('open', !open);
+}
+
+document.querySelectorAll('.input-costo').forEach(function (inp) {
+    inp.addEventListener('click', function (e) { e.stopPropagation(); });
+    inp.addEventListener('change', function () { guardarCosto(this); });
+    inp.addEventListener('paste', function (e) {
+        const texto = (e.clipboardData || window.clipboardData).getData('text');
+        const valores = texto.split(/\r\n|\r|\n/).map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
+        if (valores.length <= 1) return; // valor único: dejar que el navegador pegue normalmente
+        e.preventDefault();
+        const inputs = Array.from(document.querySelectorAll('.input-costo'));
+        const desde  = inputs.indexOf(this);
+        valores.forEach(function (v, i) {
+            const destino = inputs[desde + i];
+            if (!destino) return;
+            const num = v.replace(',', '.').replace(/[^0-9.]/g, '');
+            destino.value = num;
+            guardarCosto(destino);
+        });
+    });
+});
+
+function guardarCosto(input) {
+    const id    = input.dataset.id;
+    const costo = input.value;
+    input.classList.remove('is-invalid', 'border-success');
+    fetch('<?= url('modules/entrega_costo_guardar.php') ?>', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'id=' + encodeURIComponent(id) + '&costo=' + encodeURIComponent(costo)
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.ok) {
+            input.classList.add('border-success');
+            setTimeout(function () { input.classList.remove('border-success'); }, 1200);
+        } else {
+            input.classList.add('is-invalid');
+        }
+    })
+    .catch(function () { input.classList.add('is-invalid'); });
 }
 </script>
 </body>
