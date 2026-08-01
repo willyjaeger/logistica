@@ -48,6 +48,31 @@ $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $entregas_raw = $stmt->fetchAll();
 
+// ── Detalle de clientes / localidad de entrega por viaje ──────────
+$detalle_map = [];
+$ids = array_column($entregas_raw, 'id');
+if ($ids) {
+    $idsStr = implode(',', array_map('intval', $ids));
+    $dq = $db->query("
+        SELECT er.entrega_id, c.nombre AS cliente, c.localidad
+        FROM entrega_remitos er
+        JOIN remitos r  ON r.id = er.remito_id
+        JOIN clientes c ON c.id = r.cliente_id
+        WHERE er.entrega_id IN ($idsStr)
+        ORDER BY c.nombre
+    ");
+    foreach ($dq->fetchAll() as $row) {
+        $eid2 = $row['entrega_id'];
+        if (!isset($detalle_map[$eid2])) $detalle_map[$eid2] = ['clientes' => [], 'localidades' => []];
+        if ($row['cliente'] && !in_array($row['cliente'], $detalle_map[$eid2]['clientes'], true)) {
+            $detalle_map[$eid2]['clientes'][] = $row['cliente'];
+        }
+        if (!empty($row['localidad']) && !in_array($row['localidad'], $detalle_map[$eid2]['localidades'], true)) {
+            $detalle_map[$eid2]['localidades'][] = $row['localidad'];
+        }
+    }
+}
+
 // ── Agrupar por transportista → mes ──────────────────────────────
 $grupos             = [];
 $total_viajes_gral  = 0;
@@ -59,6 +84,8 @@ foreach ($entregas_raw as $e) {
     $tnom  = $e['transportista'];
     $mes   = $e['fecha'] ? substr($e['fecha'], 0, 7) : '0000-00';
     $costo = (float)($e['costo_transporte'] ?? 0);
+    $e['clientes']    = $detalle_map[$e['id']]['clientes']    ?? [];
+    $e['localidades'] = $detalle_map[$e['id']]['localidades'] ?? [];
 
     if (!isset($grupos[$tid])) {
         $grupos[$tid] = ['nombre' => $tnom, 'meses' => [], 'total_viajes' => 0, 'total_pallets' => 0.0, 'total_costo' => 0.0];
@@ -406,6 +433,8 @@ $nav_modulo = 'reportes';
             <thead>
                 <tr style="background:#2c3e50; color:#fff">
                     <th style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding:.6rem .75rem">Fecha</th>
+                    <th style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Cliente</th>
+                    <th style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Localidad</th>
                     <th style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Patente</th>
                     <th style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Chofer</th>
                     <th class="text-center" style="font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em">Remitos</th>
@@ -420,7 +449,7 @@ $nav_modulo = 'reportes';
             ?>
                 <!-- Transportista header -->
                 <tr class="th-card-hdr">
-                    <td colspan="4" style="padding:.55rem .75rem">
+                    <td colspan="6" style="padding:.55rem .75rem">
                         <i class="bi bi-building me-2"></i><?= h($g['nombre']) ?>
                     </td>
                     <td class="text-end"><?= number_format($g['total_pallets'], 1) ?> pal.</td>
@@ -434,7 +463,7 @@ $nav_modulo = 'reportes';
                 ?>
                 <!-- Mes header -->
                 <tr class="row-mes">
-                    <td colspan="7" style="padding:.4rem .75rem">
+                    <td colspan="9" style="padding:.4rem .75rem">
                         <i class="bi bi-calendar3 me-2"></i><?= mesLabel($mes) ?>
                         <span class="ms-3 fw-normal" style="color:#3b5bbd">
                             <?= $nvm ?> viaje<?= $nvm === 1 ? '' : 's' ?>
@@ -443,10 +472,27 @@ $nav_modulo = 'reportes';
                     </td>
                 </tr>
 
-                <?php foreach ($md['viajes'] as $e): ?>
+                <?php foreach ($md['viajes'] as $e):
+                    $cli_str = implode(', ', $e['clientes']);
+                    $loc_str = implode(', ', $e['localidades']);
+                ?>
                 <tr class="row-viaje">
                     <td style="padding:.4rem .75rem; white-space:nowrap">
                         <?= fmtFechaVT($e['fecha']) ?>
+                    </td>
+                    <td class="small" style="max-width:160px">
+                        <?php if ($cli_str !== ''): ?>
+                        <span title="<?= h($cli_str) ?>"><?= h(mb_strimwidth($cli_str, 0, 28, '…')) ?></span>
+                        <?php else: ?>
+                        <span class="text-muted">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="small text-muted" style="max-width:140px">
+                        <?php if ($loc_str !== ''): ?>
+                        <span title="<?= h($loc_str) ?>"><?= h(mb_strimwidth($loc_str, 0, 24, '…')) ?></span>
+                        <?php else: ?>
+                        <span class="text-muted">—</span>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <?php if ($e['patente']): ?>
@@ -483,7 +529,7 @@ $nav_modulo = 'reportes';
 
                 <!-- Subtotal mes -->
                 <tr class="row-sub-mes">
-                    <td colspan="3" class="text-end pe-3" style="color:#1e3a8a">
+                    <td colspan="5" class="text-end pe-3" style="color:#1e3a8a">
                         Subtotal <?= mesLabel($mes) ?>
                     </td>
                     <td class="text-center" style="color:#1e3a8a"><?= $nvm ?></td>
@@ -496,7 +542,7 @@ $nav_modulo = 'reportes';
 
                 <!-- Total transportista -->
                 <tr class="row-total-t">
-                    <td colspan="3" class="text-end pe-3">Total <?= h($g['nombre']) ?></td>
+                    <td colspan="5" class="text-end pe-3">Total <?= h($g['nombre']) ?></td>
                     <td class="text-center"><?= $ngt ?></td>
                     <td class="text-end"><?= number_format($g['total_pallets'], 1) ?></td>
                     <td></td>
@@ -507,7 +553,7 @@ $nav_modulo = 'reportes';
 
                 <!-- Total general -->
                 <tr class="row-total-gral">
-                    <td colspan="3" class="text-end pe-3">TOTAL GENERAL</td>
+                    <td colspan="5" class="text-end pe-3">TOTAL GENERAL</td>
                     <td class="text-center"><?= $total_viajes_gral ?></td>
                     <td class="text-end"><?= number_format($total_pallets_gral, 1) ?></td>
                     <td></td>
