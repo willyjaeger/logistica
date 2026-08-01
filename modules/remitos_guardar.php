@@ -33,6 +33,7 @@ $back           = trim($_POST['back'] ?? '');
 // ── Validación básica ─────────────────────────────────────────
 $errores = [];
 if ($cliente_id <= 0)  $errores[] = 'Seleccioná un cliente.';
+if (!$proveedor_id)    $errores[] = 'Seleccioná un proveedor.';
 if ($nro_num === '00000000') $errores[] = 'Ingresá el número de remito.';
 
 if (!$errores) {

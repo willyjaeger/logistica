@@ -278,20 +278,6 @@ $nav_modulo = 'remitos';
             <div class="seccion-titulo"><i class="bi bi-truck me-1"></i>Camión / Transporte</div>
             <div class="row g-2">
                 <div class="col-sm-3 col-lg-2">
-                    <label class="form-label form-label-sm mb-1">Proveedor</label>
-                    <select name="proveedor_id" class="form-select form-select-sm">
-                        <option value="">— ninguno —</option>
-                        <?php
-                        $sel_prov = $form_post['proveedor_id']
-                            ?? ($edit_id > 0 ? $remito['proveedor_id'] : ($sess['proveedor_id'] ?? ''));
-                        foreach ($proveedores as $p): ?>
-                        <option value="<?= $p['id'] ?>" <?= $sel_prov == $p['id'] ? 'selected' : '' ?>>
-                            <?= h($p['nombre']) ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-sm-3 col-lg-2">
                     <label class="form-label form-label-sm mb-1">Transportista</label>
                     <input type="text" name="transportista" class="form-control form-control-sm"
                            placeholder="Empresa de transporte"
@@ -325,6 +311,22 @@ $nav_modulo = 'remitos';
         <div class="seccion">
             <div class="seccion-titulo"><i class="bi bi-file-earmark-text me-1"></i>Datos del remito</div>
             <div class="row g-2 align-items-end">
+                <div class="col-sm-3 col-lg-2">
+                    <label class="form-label form-label-sm mb-1">
+                        Proveedor <span class="text-danger">*</span>
+                    </label>
+                    <select name="proveedor_id" class="form-select form-select-sm" required>
+                        <option value="">— seleccionar —</option>
+                        <?php
+                        $sel_prov = $form_post['proveedor_id']
+                            ?? ($edit_id > 0 ? $remito['proveedor_id'] : ($sess['proveedor_id'] ?? ''));
+                        foreach ($proveedores as $p): ?>
+                        <option value="<?= $p['id'] ?>" <?= $sel_prov == $p['id'] ? 'selected' : '' ?>>
+                            <?= h($p['nombre']) ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="col-sm-2 col-lg-2">
                     <label class="form-label form-label-sm mb-1">Fecha</label>
                     <input type="date" name="fecha_remito" id="fecha_remito" class="form-control form-control-sm"
