@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Command php -ErrorAction SilentlyContinue)",
+      "PowerShell(php -v 2>&1)"
+    ]
+  }
+}
