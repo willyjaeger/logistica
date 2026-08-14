@@ -225,6 +225,12 @@ $auto_refresh = 60;
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
+    <?php if (isset($_GET['stock'])): ?>
+    <div class="alert alert-info alert-dismissible py-2 mb-3">
+        <i class="bi bi-archive me-2"></i>Remito pasado a stock. Ya no figura como pendiente.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php endif; ?>
 
     <!-- Filtros -->
     <form method="GET" class="row g-2 mb-3 align-items-end">
@@ -370,6 +376,17 @@ $auto_refresh = 60;
                                class="btn btn-sm btn-outline-warning" title="Registrar devolución">
                                 <i class="bi bi-arrow-return-left"></i>
                             </a>
+                            <?php endif; ?>
+                            <?php if ($r['estado'] === 'pendiente'): ?>
+                            <form method="POST" action="<?= url('modules/remito_marcar_stock.php') ?>"
+                                  class="d-inline"
+                                  onsubmit="return confirm('¿Marcar el remito <?= h($r['nro_remito_propio']) ?> como pasado a stock? Dejará de figurar como pendiente.')">
+                                <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                                <input type="hidden" name="back" value="<?= h($back_qs) ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Marcar como stock">
+                                    <i class="bi bi-archive"></i>
+                                </button>
+                            </form>
                             <?php endif; ?>
                             <a href="<?= url("modules/remitos_form.php?id={$r['id']}") . ($back_qs ? '&back=' . urlencode($back_qs) : '') ?>"
                                class="btn btn-sm btn-outline-primary" title="Editar">
