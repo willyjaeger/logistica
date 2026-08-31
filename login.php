@@ -11,10 +11,12 @@ if (!empty($_SESSION['usuario_id'])) {
 }
 
 $error = '';
+$cookie_path = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario  = trim($_POST['usuario']  ?? '');
     $password = trim($_POST['password'] ?? '');
+    $recordar = !empty($_POST['recordar']);
 
     if ($usuario === '' || $password === '') {
         $error = 'Completá usuario y contraseña.';
@@ -32,6 +34,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = $stmt->fetch();
 
         if ($row && password_verify($password, $row['password'])) {
+            if ($recordar) {
+                setcookie('recordar_usuario', $usuario, time() + 60 * 60 * 24 * 30, $cookie_path);
+            } else {
+                setcookie('recordar_usuario', '', time() - 3600, $cookie_path);
+            }
+
             session_regenerate_id(true);
             $_SESSION['usuario_id']          = $row['id'];
             $_SESSION['usuario_nombre']      = $row['nombre'];
@@ -85,6 +93,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
+        <?php
+            $usuario_valor = $_POST['usuario'] ?? ($_COOKIE['recordar_usuario'] ?? '');
+            $recordar_check = isset($_POST['usuario']) ? !empty($_POST['recordar']) : isset($_COOKIE['recordar_usuario']);
+        ?>
         <form method="POST" autocomplete="off" novalidate>
             <div class="mb-3">
                 <label class="form-label fw-semibold">Usuario</label>
@@ -95,9 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         name="usuario"
                         class="form-control"
                         placeholder="Tu usuario"
-                        value="<?= htmlspecialchars($_POST['usuario'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                        autocomplete="off"
-                        readonly onfocus="this.removeAttribute('readonly')"
+                        value="<?= htmlspecialchars($usuario_valor, ENT_QUOTES, 'UTF-8') ?>"
+                        autocomplete="username"
+                        <?php if ($usuario_valor === ''): ?>readonly onfocus="this.removeAttribute('readonly')"<?php endif; ?>
                         autofocus
                         required
                     >
@@ -118,6 +130,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         required
                     >
                 </div>
+            </div>
+
+            <div class="mb-4 form-check">
+                <input type="checkbox" class="form-check-input" id="recordar" name="recordar" value="1" <?= $recordar_check ? 'checked' : '' ?>>
+                <label class="form-check-label" for="recordar">Recordar mi usuario</label>
             </div>
 
             <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
