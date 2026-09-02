@@ -613,6 +613,7 @@ $nav_modulo = 'remitos';
         <table class="table table-sm mb-0">
             <thead>
                 <tr>
+                    <th style="font-size:.75rem">Salida</th>
                     <th style="font-size:.75rem">Fecha</th>
                     <th style="font-size:.75rem">Transportista</th>
                     <th style="font-size:.75rem">Patente</th>
@@ -623,6 +624,12 @@ $nav_modulo = 'remitos';
             <tbody>
             <?php foreach ($historial as $h): ?>
             <tr>
+                <td class="text-nowrap">
+                    <a href="<?= url('modules/entrega_dia_form.php') ?>?id=<?= $h['id'] ?>&back=lista"
+                       class="text-decoration-none">
+                        <span class="badge bg-dark font-monospace">#<?= h($h['id']) ?></span>
+                    </a>
+                </td>
                 <td class="text-nowrap">
                     <a href="<?= url('modules/entrega_dia_form.php') ?>?id=<?= $h['id'] ?>&back=lista"
                        class="text-decoration-none">
