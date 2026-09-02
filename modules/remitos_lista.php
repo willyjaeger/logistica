@@ -56,14 +56,14 @@ $sql = "
            i.fecha_ingreso, i.transportista, i.patente_camion_ext,
            t.id         AS turno_id,
            t.fecha      AS turno_fecha,
-           ef.fecha_salida_real
+           ef.fecha_salida_real, ef.entrega_id
     FROM remitos r
     JOIN clientes c ON r.cliente_id = c.id
     LEFT JOIN proveedores p ON r.proveedor_id = p.id
     JOIN ingresos i ON r.ingreso_id = i.id
     LEFT JOIN turnos t ON t.remito_id = r.id AND t.empresa_id = r.empresa_id
     LEFT JOIN (
-        SELECT er.remito_id, DATE(MAX(en.fecha_salida)) AS fecha_salida_real
+        SELECT er.remito_id, DATE(MAX(en.fecha_salida)) AS fecha_salida_real, MAX(en.id) AS entrega_id
         FROM entrega_remitos er
         JOIN entregas en ON en.id = er.entrega_id
         WHERE en.estado IN ('completada','entregado','con_incidencias')
@@ -298,8 +298,8 @@ $auto_refresh = 60;
                             <th style="width:90px"><a href="<?= sort_url('proveedor',     $sort, $dir, $_filters) ?>">Proveedor<?= sort_icon('proveedor',     $sort, $dir) ?></a></th>
                             <th class="text-center"><a href="<?= sort_url('pallets', $sort, $dir, $_filters) ?>">Pallets<?= sort_icon('pallets', $sort, $dir) ?></a></th>
                             <th><a href="<?= sort_url('estado',        $sort, $dir, $_filters) ?>">Estado<?= sort_icon('estado',        $sort, $dir) ?></a></th>
-                            <th><a href="<?= sort_url('fecha_entrega', $sort, $dir, $_filters) ?>">F. programada<?= sort_icon('fecha_entrega', $sort, $dir) ?></a></th>
-                            <th>F. efectiva</th>
+                            <th>Nro salida</th>
+                            <th>Fecha entrega</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -342,10 +342,13 @@ $auto_refresh = 60;
                             </span>
                             <?php endif; ?>
                         </td>
-                        <td class="small text-muted">
-                            <?php if ($r['fecha_entrega']): ?>
-                                <?php [$ye,$me,$de] = explode('-', $r['fecha_entrega']); echo "$de/$me/$ye"; ?>
-                            <?php else: ?>—<?php endif; ?>
+                        <td>
+                            <?php if ($r['entrega_id']): ?>
+                            <a href="<?= url('modules/entrega_dia_form.php') ?>?id=<?= $r['entrega_id'] ?>&back=lista"
+                               class="text-decoration-none">
+                                <span class="badge bg-dark font-monospace">#<?= h($r['entrega_id']) ?></span>
+                            </a>
+                            <?php else: ?><span class="text-muted">—</span><?php endif; ?>
                         </td>
                         <td class="small <?= $r['fecha_salida_real'] ? 'text-success fw-semibold' : 'text-muted' ?>">
                             <?php if ($r['fecha_salida_real']): ?>
