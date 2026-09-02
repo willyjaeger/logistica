@@ -346,7 +346,7 @@ $auto_refresh = 60;
                             <?php if ($r['entrega_id']): ?>
                             <a href="<?= url('modules/entrega_dia_form.php') ?>?id=<?= $r['entrega_id'] ?>&back=lista"
                                class="text-decoration-none">
-                                <span class="badge bg-dark font-monospace">#<?= h($r['entrega_id']) ?></span>
+                                <span class="badge bg-dark">#<?= h($r['entrega_id']) ?></span>
                             </a>
                             <?php else: ?><span class="text-muted">—</span><?php endif; ?>
                         </td>
