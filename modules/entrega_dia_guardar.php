@@ -73,12 +73,14 @@ try {
                        ->execute([$est, $rid, $eid]);
                 }
             }
+            // Si la entrega ya salió, los remitos nuevos también van en_camino (así la auto-transición los captura)
+            $nuevo_estado_remito = $ent_row['estado'] === 'en_camino' ? 'en_camino' : 'programado';
             foreach ($remito_ids as $rid) {
                 if (!in_array($rid, $actuales)) {
                     $db->prepare("INSERT IGNORE INTO entrega_remitos (entrega_id, remito_id) VALUES (?,?)")
                        ->execute([$entrega_id_edit, $rid]);
-                    $db->prepare("UPDATE remitos SET estado='programado', fecha_entrega=? WHERE id=? AND empresa_id=?")
-                       ->execute([$fecha, $rid, $eid]);
+                    $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=? WHERE id=? AND empresa_id=?")
+                       ->execute([$nuevo_estado_remito, $fecha, $rid, $eid]);
                 } else {
                     $db->prepare("UPDATE remitos SET fecha_entrega=? WHERE id=? AND empresa_id=?")
                        ->execute([$fecha, $rid, $eid]);
@@ -94,17 +96,20 @@ try {
     // MODO B: Agregar remitos a entrega existente (entrega_destino > 0)
     // ──────────────────────────────────────────────────────────────
     if ($entrega_destino > 0) {
-        $st = $db->prepare("SELECT id, fecha FROM entregas WHERE id=? AND empresa_id=? AND estado NOT IN ('completada','entregado','con_incidencias')");
+        $st = $db->prepare("SELECT id, fecha, estado FROM entregas WHERE id=? AND empresa_id=? AND estado NOT IN ('completada','entregado','con_incidencias')");
         $st->execute([$entrega_destino, $eid]);
         $ent_row = $st->fetch();
         if (!$ent_row) { $db->rollBack(); redir($fecha); }
+
+        // Si la entrega ya salió, los remitos también van en_camino (así la auto-transición los captura)
+        $nuevo_estado_remito = $ent_row['estado'] === 'en_camino' ? 'en_camino' : 'programado';
 
         // Solo agregar los nuevos remitos (INSERT IGNORE)
         foreach ($remito_ids as $rid) {
             $db->prepare("INSERT IGNORE INTO entrega_remitos (entrega_id, remito_id) VALUES (?,?)")
                ->execute([$entrega_destino, $rid]);
-            $db->prepare("UPDATE remitos SET estado='programado', fecha_entrega=? WHERE id=? AND empresa_id=?")
-               ->execute([$ent_row['fecha'], $rid, $eid]);
+            $db->prepare("UPDATE remitos SET estado=?, fecha_entrega=? WHERE id=? AND empresa_id=?")
+               ->execute([$nuevo_estado_remito, $ent_row['fecha'], $rid, $eid]);
         }
 
         $db->commit();
