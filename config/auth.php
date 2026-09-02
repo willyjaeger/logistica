@@ -28,15 +28,17 @@ function require_login(): void
     }
     $_SESSION['ultimo_acceso'] = time();
 
-    // Auto-transición diaria: en_camino → completada/entregado (una vez por día por sesión)
+    // Auto-transición diaria: en_camino/armando → completada/entregado (una vez por día por sesión)
+    // Una entrega "armando" cuya fecha ya pasó también se da por cerrada: en la práctica
+    // el viaje ya salió aunque nadie haya hecho clic en "Confirmar salida" a tiempo.
     $hoy_at = date('Y-m-d');
     if (($_SESSION['auto_trans_dia'] ?? '') !== $hoy_at) {
         $_SESSION['auto_trans_dia'] = $hoy_at;
         $eid_at = (int)($_SESSION['empresa_id'] ?? 0);
         if ($eid_at > 0) {
             $dba = db();
-            $dba->prepare("UPDATE entregas SET estado='completada' WHERE empresa_id=? AND estado='en_camino' AND fecha < ?")->execute([$eid_at, $hoy_at]);
-            $dba->prepare("UPDATE remitos  SET estado='entregado'  WHERE empresa_id=? AND estado='en_camino' AND fecha_entrega < ?")->execute([$eid_at, $hoy_at]);
+            $dba->prepare("UPDATE entregas SET estado='completada' WHERE empresa_id=? AND estado IN ('en_camino','armando') AND fecha < ?")->execute([$eid_at, $hoy_at]);
+            $dba->prepare("UPDATE remitos  SET estado='entregado'  WHERE empresa_id=? AND estado IN ('en_camino','programado') AND fecha_entrega < ?")->execute([$eid_at, $hoy_at]);
             $dba->prepare("UPDATE turnos   SET estado='entregado'  WHERE empresa_id=? AND estado='en_camino' AND fecha < ?")->execute([$eid_at, $hoy_at]);
         }
     }

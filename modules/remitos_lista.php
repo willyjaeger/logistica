@@ -56,7 +56,8 @@ $sql = "
            i.fecha_ingreso, i.transportista, i.patente_camion_ext,
            t.id         AS turno_id,
            t.fecha      AS turno_fecha,
-           ef.fecha_salida_real, ef.entrega_id
+           ef.fecha_salida_real,
+           COALESCE(ef.entrega_id, ea.entrega_id) AS entrega_id
     FROM remitos r
     JOIN clientes c ON r.cliente_id = c.id
     LEFT JOIN proveedores p ON r.proveedor_id = p.id
@@ -70,6 +71,11 @@ $sql = "
           AND (er.resultado = 'entregado' OR er.resultado IS NULL)
         GROUP BY er.remito_id
     ) ef ON ef.remito_id = r.id
+    LEFT JOIN (
+        SELECT er.remito_id, MAX(er.entrega_id) AS entrega_id
+        FROM entrega_remitos er
+        GROUP BY er.remito_id
+    ) ea ON ea.remito_id = r.id
     WHERE " . implode(' AND ', $where) . "
     ORDER BY {$sort_col} {$dir_sql}, r.id DESC
     LIMIT 100
