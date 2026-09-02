@@ -205,6 +205,9 @@ $auto_refresh = 60;
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h5 class="fw-bold mb-0"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Remitos</h5>
         <div class="d-flex gap-2 align-items-center">
+            <a href="<?= url('modules/remitos_a_stock.php') ?>" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-archive me-1"></i>Pasar a stock
+            </a>
             <a href="<?= url('modules/entregas_form.php') ?>" class="btn btn-outline-success btn-sm">
                 <i class="bi bi-truck me-1"></i>Nueva salida
             </a>
@@ -232,9 +235,10 @@ $auto_refresh = 60;
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
-    <?php if (isset($_GET['stock'])): ?>
+    <?php if (isset($_GET['stock']) && (int)$_GET['stock'] > 0): ?>
+    <?php $n_stock = (int)$_GET['stock']; ?>
     <div class="alert alert-info alert-dismissible py-2 mb-3">
-        <i class="bi bi-archive me-2"></i>Remito pasado a stock. Ya no figura como pendiente.
+        <i class="bi bi-archive me-2"></i><?= $n_stock === 1 ? 'Remito pasado a stock.' : "$n_stock remitos pasados a stock." ?> Ya no figura<?= $n_stock === 1 ? '' : 'n' ?> como pendiente<?= $n_stock === 1 ? '' : 's' ?>.
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>
