@@ -74,6 +74,7 @@ $sql = "
     LEFT JOIN (
         SELECT er.remito_id, MAX(er.entrega_id) AS entrega_id
         FROM entrega_remitos er
+        WHERE er.resultado = 'entregado' OR er.resultado IS NULL
         GROUP BY er.remito_id
     ) ea ON ea.remito_id = r.id
     WHERE " . implode(' AND ', $where) . "
