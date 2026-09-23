@@ -9,10 +9,10 @@ $eid = empresa_id();
 $id = (int)($_GET['id'] ?? 0);
 $es_nuevo = $id === 0;
 
-$u = ['nombre' => '', 'usuario' => '', 'rol' => 'operador', 'activo' => 1, 'debe_cambiar_clave' => 0];
+$u = ['nombre' => '', 'usuario' => '', 'rol' => 'operador', 'proveedor_id' => null, 'activo' => 1, 'debe_cambiar_clave' => 0];
 
 if (!$es_nuevo) {
-    $q = $db->prepare("SELECT id, nombre, usuario, rol, activo, debe_cambiar_clave
+    $q = $db->prepare("SELECT id, nombre, usuario, rol, proveedor_id, activo, debe_cambiar_clave
                        FROM usuarios WHERE id = ? AND empresa_id = ?");
     $q->execute([$id, $eid]);
     $fila = $q->fetch();
@@ -24,6 +24,10 @@ $error = $_SESSION['form_error'] ?? null;
 $post  = $_SESSION['form_post']  ?? [];
 unset($_SESSION['form_error'], $_SESSION['form_post']);
 if ($post) $u = array_merge($u, $post);
+
+$pq = $db->prepare("SELECT id, nombre FROM proveedores WHERE empresa_id = ? AND activo = 1 ORDER BY nombre");
+$pq->execute([$eid]);
+$proveedores = $pq->fetchAll();
 
 $nav_modulo = 'config';
 ?>
@@ -90,10 +94,23 @@ $nav_modulo = 'config';
 
             <div class="mb-3">
                 <label class="form-label fw-semibold">Rol</label>
-                <select name="rol" class="form-select">
-                    <option value="operador" <?= $u['rol'] === 'operador' ? 'selected' : '' ?>>Operador</option>
-                    <option value="admin"    <?= $u['rol'] === 'admin'    ? 'selected' : '' ?>>Administrador</option>
+                <select name="rol" class="form-select" id="sel-rol"
+                        onchange="document.getElementById('box-proveedor').classList.toggle('d-none', this.value !== 'proveedor')">
+                    <option value="operador"  <?= $u['rol'] === 'operador'  ? 'selected' : '' ?>>Operador</option>
+                    <option value="admin"     <?= $u['rol'] === 'admin'     ? 'selected' : '' ?>>Administrador</option>
+                    <option value="proveedor" <?= $u['rol'] === 'proveedor' ? 'selected' : '' ?>>Proveedor (solo consulta)</option>
                 </select>
+            </div>
+
+            <div class="mb-3<?= $u['rol'] === 'proveedor' ? '' : ' d-none' ?>" id="box-proveedor">
+                <label class="form-label fw-semibold">Proveedor</label>
+                <select name="proveedor_id" class="form-select">
+                    <option value="">— Elegir —</option>
+                    <?php foreach ($proveedores as $pv): ?>
+                    <option value="<?= $pv['id'] ?>" <?= (int)$u['proveedor_id'] === (int)$pv['id'] ? 'selected' : '' ?>><?= h($pv['nombre']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="form-text">Solo verá los remitos de este proveedor y sus comprobantes de entrega. No puede modificar nada.</div>
             </div>
 
             <div class="mb-4">

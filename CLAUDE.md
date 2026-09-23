@@ -25,6 +25,7 @@ SOURCE migracion_alter_entregas.sql;
 SOURCE migracion_articulos_pallets.sql;
 SOURCE migracion_cuit_clientes.sql;
 SOURCE migracion_cc_viajes.sql;
+SOURCE migracion_comprobantes.sql;     -- remito_comprobantes + rol 'proveedor'
 ```
 
 **Generar hash para nueva contraseña**:
@@ -52,6 +53,7 @@ Procedural PHP con SQL embebido y HTML inline. Sin MVC. Una responsabilidad por 
 - `usuario_nombre()` — devuelve `$_SESSION['usuario_nombre']`
 - `empresa_nombre()` — devuelve `$_SESSION['empresa_nombre']`
 - `es_admin()` — verifica `usuario_rol === 'admin'`
+- `proveedor_id()` — proveedor vinculado al usuario (solo rol `proveedor`)
 - `h($str)` — escapa HTML con `htmlspecialchars` (usar en todo output)
 - `url($path)` — genera URL absoluta usando la constante `BASE_URL`
 - `fecha_legible($fecha)` — formatea `Y-m-d H:i:s` → `d/m/Y H:i`
@@ -86,6 +88,8 @@ Siempre usar prepared statements con `prepare()` + `execute([$param])`. Nunca co
 | Transportistas | `modules/transportistas_*.php`, `camiones_guardar.php`, `choferes_guardar.php` | Empresas transportistas con sus camiones y choferes inline |
 | Config (admin) | `modules/configuracion/` | Clientes, Proveedores, Choferes, Camiones, Usuarios — solo `es_admin()`. **Directorio vacío (pendiente de implementación)** |
 | Stock | `modules/stock/` | Ítems en depósito (estado `en_stock`). **Directorio vacío (pendiente)** |
+| Comprobantes | `modules/comprobantes*.php`, `modules/_comprobantes_helpers.php`, `modules/escaner_descargar.php`, `herramientas/escaner.ps1` | Remito firmado escaneado o fotografiado, vinculado al remito (tabla `remito_comprobantes`, N por remito). Archivos en `uploads/comprobantes/{empresa}/{AAAA}/{MM}/` (bloqueado por `.htaccess`, no se versiona); se sirven solo vía `portal/ver.php`. El botón Escanear habla con `herramientas/escaner.ps1`, un servicio local (PowerShell + WIA) en `http://localhost:8765` en la PC del escáner, que solo acepta el origen del sitio; `escaner_descargar.php` genera el instalador `.bat` |
+| Portal proveedor | `portal/index.php`, `portal/ver.php` | Usuarios con rol `proveedor` (`usuarios.proveedor_id`) solo ven sus remitos y comprobantes. `require_login()` los redirige al portal si piden cualquier script fuera de `/portal/` |
 | Reportes | `modules/reportes/cuenta_corriente.php` | Cuenta corriente de proveedores: posiciones diarias en depósito + distribución (por camión o por pallet). Usa tabla `cc_viajes` para registrar camiones por día vía POST inline. `modules/reportes/camiones.php` está enlazado en la navbar pero **pendiente de implementación**. |
 
 ### AJAX Endpoints
@@ -153,7 +157,7 @@ unset($_SESSION['form_post']);
 - **Bootstrap 5.3.3** (CDN) + **Bootstrap Icons 1.11.3** (CDN)
 - CSS personalizado mínimo en `assets/css/app.css`
 - `includes/navbar.php`: incluye inline el JS de "Enter avanza campo" y "select-all on focus". `assets/js/forms.js` existe como implementación de referencia más completa (añade el evento `formUltimoCampo` y maneja `textarea.select()`) pero **no se carga en ninguna página** — no agregar `<script src>` para él salvo que se quiera migrar.
-- Variable `$nav_modulo` en cada página para marcar activo en `includes/navbar.php`. Valores válidos: `'panel'`, `'ingresos'`, `'remitos'`, `'entregas'`, `'transportistas'`, `'agenda'`, `'stock'`, `'reportes'`, `'config'`
+- Variable `$nav_modulo` en cada página para marcar activo en `includes/navbar.php`. Valores válidos: `'panel'`, `'ingresos'`, `'remitos'`, `'entregas'`, `'transportistas'`, `'agenda'`, `'stock'`, `'comprobantes'`, `'reportes'`, `'config'`
 
 ### Formato de número de remito
 `nro_remito_propio` sigue el formato `R-{punto_venta}-{numero}` (ej. `R-00001-00000001`). El form lo parsea con `explode('-', ...)` para separar punto de venta y número en campos independientes.

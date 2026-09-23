@@ -51,6 +51,26 @@ function require_login(): void
             exit;
         }
     }
+
+    // Usuarios de proveedor: solo acceden al portal de consulta (portal/)
+    if (usuario_rol() === 'proveedor') {
+        if (!isset($_SESSION['proveedor_id'])) {
+            $st = db()->prepare("SELECT proveedor_id FROM usuarios WHERE id = ?");
+            $st->execute([$_SESSION['usuario_id']]);
+            $_SESSION['proveedor_id'] = (int)$st->fetchColumn();
+        }
+        $script = $_SERVER['SCRIPT_NAME'] ?? '';
+        if (strpos($script, '/portal/') === false && strpos($script, 'cambiar_clave') === false) {
+            header('Location: ' . BASE_URL . '/portal/index.php');
+            exit;
+        }
+    }
+}
+
+// Proveedor vinculado al usuario (solo rol proveedor; 0 si no aplica)
+function proveedor_id(): int
+{
+    return (int) ($_SESSION['proveedor_id'] ?? 0);
 }
 
 // Genera una URL absoluta dentro del sistema
@@ -77,7 +97,7 @@ function empresa_nombre(): string
     return $_SESSION['empresa_nombre'] ?? '';
 }
 
-// Rol del usuario (admin | operador)
+// Rol del usuario (admin | operador | proveedor)
 function usuario_rol(): string
 {
     return $_SESSION['usuario_rol'] ?? 'operador';

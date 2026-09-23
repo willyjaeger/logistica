@@ -107,6 +107,10 @@ if ($remitos) {
     }
 }
 
+// ── Comprobantes de entrega cargados ──────────────────────────
+require_once __DIR__ . '/_comprobantes_helpers.php';
+$comp_map = comprobantes_contar($db, $eid, array_column($remitos, 'id'));
+
 // ── Etiquetas estado ──────────────────��───────────────────────
 $estado_label = [
     'pendiente'              => ['badge-estado-pendiente',              'Pendiente'],
@@ -383,6 +387,14 @@ $auto_refresh = 60;
                             <a href="<?= url('modules/entrega_dia_form.php') ?>?remito_id=<?= $r['id'] ?>&fecha=<?= $f_agenda ?>"
                                class="btn btn-sm btn-outline-warning" title="Asignar a salida">
                                 <i class="bi bi-truck"></i>
+                            </a>
+                            <?php endif; ?>
+                            <?php $n_comp = $comp_map[$r['id']] ?? 0; ?>
+                            <?php if ($n_comp || in_array($r['estado'], ['entregado','parcialmente_entregado'])): ?>
+                            <a href="<?= url('modules/comprobantes.php') ?>?remito_id=<?= $r['id'] ?>"
+                               class="btn btn-sm <?= $n_comp ? 'btn-success' : 'btn-outline-success' ?>"
+                               title="<?= $n_comp ? "Comprobante de entrega ($n_comp)" : 'Cargar comprobante de entrega' ?>">
+                                <i class="bi bi-paperclip"></i>
                             </a>
                             <?php endif; ?>
                             <?php if ($r['estado'] === 'entregado' && !$r['fecha_devolucion']): ?>

@@ -1,5 +1,5 @@
 <?php
-// $nav_modulo: 'panel' | 'ingresos' | 'remitos' | 'entregas' | 'transportistas' | 'agenda' | 'stock' | 'reportes' | 'config'
+// $nav_modulo: 'panel' | 'ingresos' | 'remitos' | 'entregas' | 'transportistas' | 'agenda' | 'stock' | 'comprobantes' | 'reportes' | 'config'
 // Debe estar definida antes de incluir este archivo.
 if (!isset($nav_modulo)) $nav_modulo = '';
 ?>
@@ -15,6 +15,13 @@ if (!isset($nav_modulo)) $nav_modulo = '';
 
         <div class="collapse navbar-collapse" id="navMenu">
             <ul class="navbar-nav me-auto gap-1">
+                <?php if (usuario_rol() === 'proveedor'): ?>
+                <li class="nav-item">
+                    <a class="nav-link active" href="<?= url('portal/index.php') ?>">
+                        <i class="bi bi-file-earmark-check me-1"></i>Comprobantes de entrega
+                    </a>
+                </li>
+                <?php else: ?>
 
                 <li class="nav-item">
                     <a class="nav-link<?= $nav_modulo === 'panel' ? ' active' : '' ?>" href="<?= url('index.php') ?>">
@@ -43,6 +50,12 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                 <li class="nav-item">
                     <a class="nav-link<?= $nav_modulo === 'stock' ? ' active' : '' ?>" href="<?= url('modules/stock/lista.php') ?>">
                         <i class="bi bi-archive me-1"></i>Stock
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link<?= $nav_modulo === 'comprobantes' ? ' active' : '' ?>" href="<?= url('modules/comprobantes.php') ?>">
+                        <i class="bi bi-file-earmark-check me-1"></i>Comprobantes
                     </a>
                 </li>
 
@@ -81,6 +94,7 @@ if (!isset($nav_modulo)) $nav_modulo = '';
                 </li>
                 <?php endif; ?>
 
+                <?php endif; // proveedor ?>
             </ul>
 
             <div class="d-flex align-items-center gap-3">

@@ -105,6 +105,8 @@ $nav_modulo = 'config';
                 <td class="text-center">
                     <?php if ($u['rol'] === 'admin'): ?>
                     <span class="badge bg-primary">Admin</span>
+                    <?php elseif ($u['rol'] === 'proveedor'): ?>
+                    <span class="badge bg-info text-dark">Proveedor</span>
                     <?php else: ?>
                     <span class="badge bg-secondary">Operador</span>
                     <?php endif; ?>

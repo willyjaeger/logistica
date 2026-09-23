@@ -14,7 +14,8 @@ $id       = (int)($_POST['id'] ?? 0);
 $nombre   = trim($_POST['nombre']   ?? '');
 $usuario  = trim($_POST['usuario']  ?? '');
 $password = $_POST['password'] ?? '';
-$rol      = in_array($_POST['rol'] ?? '', ['admin','operador']) ? $_POST['rol'] : 'operador';
+$rol      = in_array($_POST['rol'] ?? '', ['admin','operador','proveedor']) ? $_POST['rol'] : 'operador';
+$prov_id  = $rol === 'proveedor' ? (int)($_POST['proveedor_id'] ?? 0) : 0;
 $activo   = isset($_POST['activo']) ? 1 : 0;
 $es_nuevo = $id === 0;
 
@@ -27,6 +28,13 @@ function redir_error(string $msg, int $id, array $post): never {
 
 if ($nombre === '') redir_error('El nombre es obligatorio.', $id, $_POST);
 
+if ($rol === 'proveedor') {
+    $chk = $db->prepare("SELECT id FROM proveedores WHERE id = ? AND empresa_id = ?");
+    $chk->execute([$prov_id, $eid]);
+    if (!$chk->fetch()) redir_error('Elegí el proveedor al que pertenece el usuario.', $id, $_POST);
+}
+$prov_id = $prov_id ?: null;
+
 if ($es_nuevo) {
     if ($usuario === '') redir_error('El nombre de usuario es obligatorio.', 0, $_POST);
     if (strlen($password) < 6) redir_error('La contraseña debe tener al menos 6 caracteres.', 0, $_POST);
@@ -37,9 +45,9 @@ if ($es_nuevo) {
     if ($chk->fetch()) redir_error('Ese nombre de usuario ya existe.', 0, $_POST);
 
     $db->prepare("
-        INSERT INTO usuarios (empresa_id, nombre, usuario, password, rol, activo, debe_cambiar_clave)
-        VALUES (?, ?, ?, ?, ?, ?, 1)
-    ")->execute([$eid, $nombre, $usuario, password_hash($password, PASSWORD_BCRYPT), $rol, $activo]);
+        INSERT INTO usuarios (empresa_id, nombre, usuario, password, rol, proveedor_id, activo, debe_cambiar_clave)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+    ")->execute([$eid, $nombre, $usuario, password_hash($password, PASSWORD_BCRYPT), $rol, $prov_id, $activo]);
 } else {
     // Verificar que el usuario pertenece a la empresa
     $chk = $db->prepare("SELECT id FROM usuarios WHERE id = ? AND empresa_id = ?");
@@ -49,12 +57,12 @@ if ($es_nuevo) {
     if ($password !== '') {
         if (strlen($password) < 6) redir_error('La contraseña debe tener al menos 6 caracteres.', $id, $_POST);
         $db->prepare("
-            UPDATE usuarios SET nombre=?, rol=?, activo=?, password=?, debe_cambiar_clave=1 WHERE id=?
-        ")->execute([$nombre, $rol, $activo, password_hash($password, PASSWORD_BCRYPT), $id]);
+            UPDATE usuarios SET nombre=?, rol=?, proveedor_id=?, activo=?, password=?, debe_cambiar_clave=1 WHERE id=?
+        ")->execute([$nombre, $rol, $prov_id, $activo, password_hash($password, PASSWORD_BCRYPT), $id]);
     } else {
         $db->prepare("
-            UPDATE usuarios SET nombre=?, rol=?, activo=? WHERE id=?
-        ")->execute([$nombre, $rol, $activo, $id]);
+            UPDATE usuarios SET nombre=?, rol=?, proveedor_id=?, activo=? WHERE id=?
+        ")->execute([$nombre, $rol, $prov_id, $activo, $id]);
     }
 }
 
